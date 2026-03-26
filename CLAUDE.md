@@ -174,13 +174,13 @@ Docker 部署（仅生产 build），CI/CD 每次 push 自动部署。
 Internet
   → https://minyis-mac-mini.tail564b26.ts.net (Tailscale Funnel)
     → nginx gateway (port 8080)
-      → /         → web container (port 3000, 前端静态)
-      → /api/     → server container (port 7700, API + WebSocket)
-      → /api/webhooks/ → server container (port 7700, GitHub Webhooks)
+      → /                → 个人主页（预留）
+      → /claudehub/      → web container (port 3000, 前端静态)
+      → /claudehub/api/  → server container (port 7700, API + WebSocket)
 ```
 
-- **Funnel URL:** `https://minyis-mac-mini.tail564b26.ts.net`
-- **Webhook URL:** `https://minyis-mac-mini.tail564b26.ts.net/api/webhooks/github`
+- **Funnel URL:** `https://minyis-mac-mini.tail564b26.ts.net/claudehub/`
+- **Webhook URL:** `https://minyis-mac-mini.tail564b26.ts.net/claudehub/api/webhooks/github`
 
 ### CD Pipeline
 

@@ -10,7 +10,7 @@ COPY apps/web/ apps/web/
 RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/web build
 
 FROM nginx:alpine
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-# SPA fallback
-RUN echo 'server { listen 80; location / { root /usr/share/nginx/html; try_files $uri /index.html; } }' > /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html/claudehub
+# SPA fallback under /claudehub/
+RUN echo 'server { listen 80; location /claudehub/ { alias /usr/share/nginx/html/claudehub/; try_files $uri /claudehub/index.html; } }' > /etc/nginx/conf.d/default.conf
 EXPOSE 80
