@@ -21,7 +21,9 @@ services:
     volumes:
       - repos-data:/repos
       - claude-auth:/home/node/.claude
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       REDIS_URL: redis://redis:6379/0
       HOST: "0.0.0.0"
