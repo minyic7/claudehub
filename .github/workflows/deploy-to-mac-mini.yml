@@ -94,15 +94,22 @@ jobs:
             docker compose up -d --remove-orphans
 
             # Health check
+            healthy=false
             for i in 1 2 3 4 5; do
               if curl -sf http://localhost:7700/api/health > /dev/null 2>&1; then
                 echo "Server healthy"
                 docker compose ps
+                healthy=true
                 break
               fi
               echo "Waiting... ($i)"
               sleep 2
             done
+            if [ "$healthy" != "true" ]; then
+              echo "Health check failed!"
+              docker compose logs --tail=20
+              exit 1
+            fi
 
             # Clean up old images
             docker image prune -f
