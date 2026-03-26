@@ -1,0 +1,11 @@
+{
+  "name": "claudehub",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev:server": "pnpm -F @claudehub/server dev",
+    "dev:web": "pnpm -F @claudehub/web dev",
+    "build": "pnpm -r build",
+    "clean": "pnpm -r exec rm -rf dist .tsbuildinfo"
+  }
+}

@@ -1,0 +1,43 @@
+services:
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  server:
+    image: ghcr.io/minyic7/claudehub-server:latest
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    depends_on:
+      redis: { condition: service_healthy }
+    volumes:
+      - repos-data:/repos
+      - claude-auth:/home/node/.claude
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      HOST: "0.0.0.0"
+      PORT: "7700"
+    # TODO: add healthcheck
+
+  web:
+    image: ghcr.io/minyic7/claudehub-web:latest
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+    # TODO: add healthcheck
+
+volumes:
+  redis-data:
+  repos-data:
+  claude-auth:
