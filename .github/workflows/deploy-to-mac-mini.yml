@@ -85,10 +85,15 @@ jobs:
             docker compose up -d --remove-orphans
 
             # Health check
-            echo "Waiting for services..."
-            sleep 5
-            # TODO: add proper health check endpoints
-            docker compose ps
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:7700/api/health > /dev/null 2>&1; then
+                echo "Server healthy"
+                docker compose ps
+                break
+              fi
+              echo "Waiting... ($i)"
+              sleep 2
+            done
 
             # Clean up old images
             docker image prune -f

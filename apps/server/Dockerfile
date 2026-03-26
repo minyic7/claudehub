@@ -10,7 +10,8 @@ COPY apps/server/ apps/server/
 RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/server build
 
 FROM node:24-alpine
-RUN apk add --no-cache git curl && npm install -g @anthropic-ai/claude-code
+RUN npm install -g @anthropic-ai/claude-code
+RUN apk add --no-cache git curl
 WORKDIR /app
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/shared/package.json packages/shared/
