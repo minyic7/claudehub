@@ -3,6 +3,15 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "docker-compose.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - ".github/workflows/deploy-to-mac-mini.yml"
 
 env:
   REGISTRY: ghcr.io
