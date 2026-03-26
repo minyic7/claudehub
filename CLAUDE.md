@@ -42,10 +42,16 @@ claude --print \
 
 ```
 claudehub/
+├── .github/
+│   └── workflows/
+│       └── deploy-to-mac-mini.yml  # CD pipeline
 ├── docker-compose.yml            # server + redis + web
 ├── pnpm-workspace.yaml
 ├── package.json
 ├── tsconfig.base.json
+│
+├── docs/
+│   └── github-api-capabilities.md  # GitHub API 能力清单
 │
 ├── packages/
 │   └── shared/                   # 前后端共享类型/常量
