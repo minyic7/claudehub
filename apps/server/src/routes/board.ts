@@ -19,6 +19,7 @@ board.get("/", async (c) => {
     try {
       const worktreePath = await git.addKanbanWorktree(
         project.owner, project.repo, project.baseBranch,
+        { skipUpdate: true },
       );
       const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
       const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl);

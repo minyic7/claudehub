@@ -15,17 +15,32 @@ export async function validateToken(
   try {
     const octokit = getClient(token);
 
-    // Check repo access
-    await octokit.repos.get({ owner, repo });
+    // Check repo access (verifies read permission)
+    const { headers } = await octokit.repos.get({ owner, repo });
 
-    // Check token scopes (repo + admin:repo_hook)
-    const { headers } = await octokit.request("GET /rate_limit");
-    const scopes = (headers["x-oauth-scopes"] || "").split(",").map((s: string) => s.trim());
-    if (!scopes.includes("repo")) {
-      return { valid: false, error: "Token missing 'repo' scope" };
+    // Try x-oauth-scopes header first (classic PATs)
+    const scopeHeader = headers["x-oauth-scopes"];
+    if (scopeHeader) {
+      const scopes = scopeHeader.split(",").map((s: string) => s.trim());
+      if (!scopes.includes("repo")) {
+        return { valid: false, error: "Token missing 'repo' scope" };
+      }
+      if (!scopes.includes("admin:repo_hook")) {
+        return { valid: false, error: "Token missing 'admin:repo_hook' scope (needed for webhooks)" };
+      }
+      return { valid: true };
     }
-    if (!scopes.includes("admin:repo_hook")) {
-      return { valid: false, error: "Token missing 'admin:repo_hook' scope (needed for webhooks)" };
+
+    // Fine-grained PATs don't return x-oauth-scopes.
+    // Verify write access by listing webhooks (requires admin:repo_hook equivalent).
+    try {
+      await octokit.repos.listWebhooks({ owner, repo, per_page: 1 });
+    } catch (hookErr: unknown) {
+      const status = (hookErr as { status?: number }).status;
+      if (status === 403 || status === 404) {
+        return { valid: false, error: "Token lacks webhook management permission (repository_hooks: write)" };
+      }
+      throw hookErr;
     }
 
     return { valid: true };

@@ -77,6 +77,7 @@ export async function addKanbanWorktree(
   owner: string,
   repo: string,
   baseBranch: string,
+  options?: { skipUpdate?: boolean },
 ): Promise<string> {
   const repoPath = bareRepoPath(owner, repo);
   const wtDir = worktreesDir(owner, repo);
@@ -84,10 +85,12 @@ export async function addKanbanWorktree(
 
   try {
     await fs.access(wtPath);
-    // Already exists — bare repos have no "origin" remote, use fetch + reset
-    const repoPath = bareRepoPath(owner, repo);
-    await exec("git", ["fetch", repoPath, baseBranch], { cwd: wtPath });
-    await exec("git", ["reset", "--hard", "FETCH_HEAD"], { cwd: wtPath });
+    if (!options?.skipUpdate) {
+      // Already exists — bare repos have no "origin" remote, use fetch + reset
+      const repoPath = bareRepoPath(owner, repo);
+      await exec("git", ["fetch", repoPath, baseBranch], { cwd: wtPath });
+      await exec("git", ["reset", "--hard", "FETCH_HEAD"], { cwd: wtPath });
+    }
     return wtPath;
   } catch {
     // Create fresh
@@ -159,22 +162,41 @@ export async function rebaseWorktree(
 
     return { success: true, conflict: false };
   } catch (err) {
-    // Check if rebase is in progress (indicates actual conflict)
+    // Determine if the failure is a rebase conflict vs other error (auth, network, etc.)
+    // Check for rebase-in-progress markers in the git directory
+    const gitDir = path.join(wtPath, ".git");
     let isConflict = false;
     try {
-      // If rebase --abort succeeds, a rebase was in progress → conflict
-      await exec("git", ["rebase", "--abort"], { cwd: wtPath });
-      isConflict = true;
+      // Worktree .git is a file pointing to the real git dir; read it
+      const gitRef = await fs.readFile(gitDir, "utf-8");
+      const realGitDir = gitRef.replace(/^gitdir:\s*/, "").trim();
+      const rebaseApply = path.join(realGitDir, "rebase-apply");
+      const rebaseMerge = path.join(realGitDir, "rebase-merge");
+      const [hasApply, hasMerge] = await Promise.all([
+        fs.access(rebaseApply).then(() => true, () => false),
+        fs.access(rebaseMerge).then(() => true, () => false),
+      ]);
+      isConflict = hasApply || hasMerge;
     } catch {
-      // rebase --abort failed → rebase wasn't in progress → other error (auth, network, etc.)
-      isConflict = false;
+      // If we can't determine, check via git status
+      try {
+        const { stdout } = await exec("git", ["status", "--porcelain"], { cwd: wtPath });
+        isConflict = stdout.includes("UU ") || stdout.includes("AA ") || stdout.includes("DD ");
+      } catch {
+        isConflict = false;
+      }
     }
 
-    if (!isConflict) {
-      // Re-throw non-conflict errors so callers can distinguish
-      throw err;
+    // Abort the in-progress rebase if it's a conflict
+    if (isConflict) {
+      try {
+        await exec("git", ["rebase", "--abort"], { cwd: wtPath });
+      } catch { /* best effort */ }
+      return { success: false, conflict: true };
     }
-    return { success: false, conflict: true };
+
+    // Re-throw non-conflict errors so callers can distinguish
+    throw err;
   }
 }
 
