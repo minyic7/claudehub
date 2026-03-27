@@ -343,6 +343,50 @@ export async function hasMergeLock(projectId: string): Promise<boolean> {
   return (await redis.exists(`merge:lock:${projectId}`)) === 1;
 }
 
+// ── Project Write Lock ──
+
+export async function acquireProjectLock(
+  projectId: string,
+  ttlSeconds = 30,
+): Promise<boolean> {
+  const result = await redis.set(
+    `project:lock:${projectId}`,
+    "1",
+    "EX",
+    ttlSeconds,
+    "NX",
+  );
+  return result === "OK";
+}
+
+export async function releaseProjectLock(projectId: string): Promise<void> {
+  await redis.del(`project:lock:${projectId}`);
+}
+
+// ── Merge Progress ──
+
+export async function setMergeProgress(
+  projectId: string,
+  number: number,
+  status: string,
+  extra?: Record<string, unknown>,
+): Promise<void> {
+  const data = JSON.stringify({ number, status, ...extra, updatedAt: new Date().toISOString() });
+  await redis.set(`merge:progress:${projectId}`, data, "EX", 3600);
+}
+
+export async function getMergeProgress(
+  projectId: string,
+): Promise<Record<string, unknown> | null> {
+  const data = await redis.get(`merge:progress:${projectId}`);
+  if (!data) return null;
+  return JSON.parse(data);
+}
+
+export async function clearMergeProgress(projectId: string): Promise<void> {
+  await redis.del(`merge:progress:${projectId}`);
+}
+
 // ── Helpers ──
 
 function flattenForRedis(obj: object): { toSet: Record<string, string>; toDel: string[] } {

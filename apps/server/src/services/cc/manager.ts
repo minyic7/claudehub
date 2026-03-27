@@ -8,8 +8,22 @@ import {
 import { broadcastTerminalOutput, broadcastEvent } from "../../lib/broadcast.js";
 import * as db from "../redis.js";
 import type { Ticket } from "@claudehub/shared";
+import path from "node:path";
+import fs from "node:fs/promises";
 
 const CLAUDE_BIN = "claude";
+const PLUGINS_DIR = path.join(import.meta.dirname, "..", "..", "plugins");
+
+/** Return PLUGINS_DIR if it exists and contains files, else undefined */
+async function getPluginsDirIfPopulated(): Promise<string | undefined> {
+  try {
+    const files = await fs.readdir(PLUGINS_DIR);
+    if (files.some((f) => f.endsWith(".md") || f.endsWith(".json"))) {
+      return PLUGINS_DIR;
+    }
+  } catch { /* dir doesn't exist */ }
+  return undefined;
+}
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -60,6 +74,9 @@ export async function startKanbanCC(
     throw new Error("Kanban CC already running");
   }
 
+  // Auto-detect plugins dir if not explicitly provided
+  const pluginDir = options?.pluginDir ?? await getPluginsDirIfPopulated();
+
   const args = [
     "--session-id",
     projectId,
@@ -70,7 +87,7 @@ export async function startKanbanCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  if (options?.pluginDir) args.push("--plugin-dir", options.pluginDir);
+  if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
   const instance = spawnPTY(
@@ -192,6 +209,9 @@ async function doStartTicketCC(
     throw new Error("Ticket CC already running");
   }
 
+  // Auto-detect plugins dir if not explicitly provided
+  const pluginDir = options?.pluginDir ?? await getPluginsDirIfPopulated();
+
   const args = [
     "--session-id",
     `${projectId}-ticket-${ticket.number}`,
@@ -202,7 +222,7 @@ async function doStartTicketCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  if (options?.pluginDir) args.push("--plugin-dir", options.pluginDir);
+  if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
   const instance = spawnPTY(
@@ -417,10 +437,16 @@ export async function recoverOnStartup(): Promise<void> {
         if (inProgress.length > 0) {
           lines.push(`  In progress: ${inProgress.map((t) => `#${t.number}`).join(", ")}`);
         }
-        // Delay slightly to ensure CC has started accepting input
-        setTimeout(() => {
-          sendToKanbanCC(project.id, lines.join("\n"));
-        }, 3000);
+        // Retry sending state summary until CC PTY is ready (up to 15s)
+        const msg = lines.join("\n");
+        const pid = project.id;
+        (async () => {
+          for (let i = 0; i < 5; i++) {
+            await new Promise((r) => setTimeout(r, 3000));
+            if (sendToKanbanCC(pid, msg)) return;
+          }
+          console.warn(`Failed to send recovery state summary to Kanban CC for ${pid}`);
+        })();
       } catch (err) {
         console.error(`Failed to recover Kanban CC for ${project.id}:`, err);
       }

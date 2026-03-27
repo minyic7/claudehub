@@ -114,32 +114,40 @@ projects.patch("/:id", async (c) => {
   const id = c.req.param("id")!;
   const body = await c.req.json<UpdateProjectInput>();
 
-  const project = await db.getProject(id);
-  if (!project) {
-    return c.json({ error: "Project not found" }, 404);
+  if (!(await db.acquireProjectLock(id))) {
+    return c.json({ error: "Project is being modified by another operation" }, 409);
   }
 
-  const updates: Partial<typeof project> = {};
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.githubToken !== undefined) {
-    // Validate new token
-    const validation = await github.validateToken(
-      body.githubToken,
-      project.owner,
-      project.repo,
-    );
-    if (!validation.valid) {
-      return c.json({ error: `Token validation failed: ${validation.error}` }, 400);
+  try {
+    const project = await db.getProject(id);
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
     }
-    updates.githubToken = body.githubToken;
-  }
 
-  const updated = await db.updateProject(id, updates);
-  if (!updated) {
-    return c.json({ error: "Update failed" }, 500);
+    const updates: Partial<typeof project> = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.githubToken !== undefined) {
+      // Validate new token
+      const validation = await github.validateToken(
+        body.githubToken,
+        project.owner,
+        project.repo,
+      );
+      if (!validation.valid) {
+        return c.json({ error: `Token validation failed: ${validation.error}` }, 400);
+      }
+      updates.githubToken = body.githubToken;
+    }
+
+    const updated = await db.updateProject(id, updates);
+    if (!updated) {
+      return c.json({ error: "Update failed" }, 500);
+    }
+    const { githubToken, ...safe } = updated;
+    return c.json(safe);
+  } finally {
+    await db.releaseProjectLock(id);
   }
-  const { githubToken, ...safe } = updated;
-  return c.json(safe);
 });
 
 // DELETE /api/projects/:id
@@ -153,6 +161,10 @@ projects.delete("/:id", async (c) => {
   // Check for active merge
   if (await db.hasMergeLock(id)) {
     return c.json({ error: "Cannot delete project with active merge" }, 409);
+  }
+
+  if (!(await db.acquireProjectLock(id, 120))) {
+    return c.json({ error: "Project is being modified by another operation" }, 409);
   }
 
   // Stop all CCs (imported lazily to avoid circular deps)
@@ -207,6 +219,8 @@ projects.delete("/:id", async (c) => {
   }
 
   await db.deleteProject(id);
+  // Lock auto-expires, but release explicitly for cleanliness
+  await db.releaseProjectLock(id);
   return c.json({ deleted: true });
 });
 

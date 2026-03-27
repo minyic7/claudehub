@@ -94,9 +94,14 @@ tickets.post("/", async (c) => {
     return c.json({ error: "Description required" }, 400);
   }
 
-  // Validate dependencies
+  // Validate dependencies exist and check for duplicates
   if (body.dependencies?.length) {
+    const seen = new Set<number>();
     for (const dep of body.dependencies) {
+      if (seen.has(dep)) {
+        return c.json({ error: `Duplicate dependency #${dep}` }, 400);
+      }
+      seen.add(dep);
       const t = await db.getTicket(projectId, dep);
       if (!t) return c.json({ error: `Dependency #${dep} not found` }, 400);
     }
@@ -231,6 +236,15 @@ tickets.patch("/:number", async (c) => {
       return c.json({ error: `Priority ${body.priority} already in use` }, 409);
     }
     updates.priority = body.priority;
+
+    // Notify Kanban CC of priority change
+    const { sendToKanbanCC, isKanbanCCRunning } = await import("../services/cc/manager.js");
+    if (isKanbanCCRunning(projectId)) {
+      sendToKanbanCC(
+        projectId,
+        `[SYSTEM] Ticket #${number} priority changed to ${body.priority}.`,
+      );
+    }
   }
 
   // Dependencies
@@ -554,6 +568,9 @@ tickets.post("/:number/merge", async (c) => {
     }
 
     await db.releaseMergeLock(projectId);
+    await db.setMergeProgress(projectId, number, "failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     broadcastEvent("merge:progress", projectId, {
       number,
       status: "failed",
@@ -571,6 +588,7 @@ async function doMerge(
   const { projectId, number } = { projectId: project.id, number: ticket.number };
 
   broadcastEvent("merge:progress", projectId, { number, status: "creating_pr" });
+  await db.setMergeProgress(projectId, number, "creating_pr");
 
   // Create PR
   const prNumber = await github.createPullRequest(
@@ -585,6 +603,7 @@ async function doMerge(
 
   await db.updateTicket(projectId, number, { githubPrNumber: prNumber });
   broadcastEvent("merge:progress", projectId, { number, status: "merging", prNumber });
+  await db.setMergeProgress(projectId, number, "merging", { prNumber });
 
   // Merge PR
   await github.mergePullRequest(
@@ -596,6 +615,7 @@ async function doMerge(
 
   // Wait for CD on base branch (if configured) — poll up to 5 minutes
   broadcastEvent("merge:progress", projectId, { number, status: "waiting_cd" });
+  await db.setMergeProgress(projectId, number, "waiting_cd");
   // Renew merge lock TTL since CD wait can be long
   const lockRenewed = await db.renewMergeLock(projectId);
   if (!lockRenewed) {
@@ -627,6 +647,7 @@ async function doMerge(
 
   await db.releaseMergeLock(projectId);
 
+  await db.clearMergeProgress(projectId);
   broadcastEvent("merge:progress", projectId, { number, status: "merged" });
   broadcastEvent("ticket:status_changed", projectId, {
     number,
@@ -662,6 +683,16 @@ async function waitForCD(
 
   throw new Error("CD wait timeout");
 }
+
+// GET /api/projects/:projectId/tickets/:number/merge
+tickets.get("/:number/merge", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const progress = await db.getMergeProgress(projectId);
+  if (!progress) {
+    return c.json({ status: "idle" });
+  }
+  return c.json(progress);
+});
 
 // DELETE /api/projects/:projectId/tickets/:number/merge
 tickets.delete("/:number/merge", async (c) => {

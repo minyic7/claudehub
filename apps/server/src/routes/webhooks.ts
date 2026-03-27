@@ -327,12 +327,15 @@ async function handleWorkflowRunEvent(
         updatedAt: new Date().toISOString(),
       };
 
+      // Store taskBrief so crash recovery uses the same prompt
+      const systemPrompt = `URGENT: CD Deployment Failure Fix\n\nWorkflow: ${workflowRun.name}\nRun URL: ${workflowRun.html_url}\n\nInvestigate the CD failure, identify the root cause, and fix it. Push your fix to trigger a new deployment.`;
+      ticket.taskBrief = systemPrompt;
+
       await db.saveTicket(ticket);
       broadcastEvent("ticket:created", project.id, { ticket });
 
       // Auto-start Ticket CC with CD failure context
       const { startTicketCC } = await import("../services/cc/manager.js");
-      const systemPrompt = `URGENT: CD Deployment Failure Fix\n\nWorkflow: ${workflowRun.name}\nRun URL: ${workflowRun.html_url}\n\nInvestigate the CD failure, identify the root cause, and fix it. Push your fix to trigger a new deployment.`;
       const settings = await db.getSettings();
       const env: Record<string, string> = {};
       if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;

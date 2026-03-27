@@ -14,5 +14,6 @@ COPY apps/server/ apps/server/
 RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/server build
 # Verify node-pty native binary exists for linux
 RUN test -f /app/node_modules/.pnpm/node-pty@*/node_modules/node-pty/build/Release/pty.node && echo "node-pty linux binary OK" || (echo "ERROR: node-pty build/Release/pty.node NOT found" && exit 1)
+ENV NODE_ENV=production
 EXPOSE 7700
 CMD ["node", "apps/server/dist/index.js"]
