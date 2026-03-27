@@ -317,6 +317,7 @@ tickets.patch("/:number", async (c) => {
         body.description ?? ticket.description,
         body.taskBrief ?? ticket.taskBrief,
         apiBaseUrl,
+        project.baseBranch,
       );
       const settings = await db.getSettings();
       const env: Record<string, string> = {};

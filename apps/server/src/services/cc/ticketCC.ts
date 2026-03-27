@@ -6,8 +6,10 @@ export function buildTicketSystemPrompt(
   description: string,
   taskBrief?: string,
   apiBaseUrl?: string,
+  baseBranch?: string,
 ): string {
   const api = apiBaseUrl || "http://localhost:7700";
+  const base = baseBranch || "main";
 
   const taskSection = taskBrief || `# Ticket #${ticketNumber}: ${title}
 
@@ -64,7 +66,7 @@ When notified of a base branch update:
 
 \`\`\`bash
 git fetch origin
-git rebase origin/\$BASE_BRANCH
+git rebase origin/${base}
 # If conflicts: resolve, git add, git rebase --continue
 git push origin HEAD --force
 \`\`\`

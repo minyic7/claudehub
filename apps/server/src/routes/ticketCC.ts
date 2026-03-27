@@ -22,9 +22,11 @@ ticketCC.post("/", async (c) => {
     return c.json({ error: "Ticket CC already running" }, 409);
   }
 
+  const project = await db.getProject(projectId);
   const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
   const systemPrompt = buildTicketSystemPrompt(
-    projectId, number, ticket.title, ticket.description, ticket.taskBrief, apiBaseUrl,
+    projectId, number, ticket.title, ticket.description, ticket.taskBrief,
+    apiBaseUrl, project?.baseBranch,
   );
 
   const settings = await db.getSettings();

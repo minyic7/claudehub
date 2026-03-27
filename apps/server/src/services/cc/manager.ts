@@ -11,9 +11,12 @@ import type { Ticket } from "@claudehub/shared";
 import {
   assembleKanbanPluginDir,
   assembleTicketPluginDir,
+  cleanupPluginDir,
 } from "../plugin/assembler.js";
+import os from "node:os";
 
 const CLAUDE_BIN = "claude";
+const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -85,17 +88,26 @@ export async function startKanbanCC(
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
+  // Inject env vars for plugin skills
+  const ccEnv: Record<string, string> = {
+    ...env,
+    API_BASE,
+    PROJECT_ID: projectId,
+  };
+
   const instance = spawnPTY(
     key,
     CLAUDE_BIN,
     args,
     worktreePath,
-    env,
+    ccEnv,
     (data) => {
       broadcastTerminalOutput(key, data);
     },
     async (code) => {
       console.log(`Kanban CC for ${projectId} exited with code ${code}`);
+      // Clean up assembled plugin dir
+      if (pluginDir) cleanupPluginDir(pluginDir);
       await db.setKanbanCCStatus(projectId, {
         status: code === 0 ? "stopped" : "error",
         lastActiveAt: new Date().toISOString(),
@@ -145,6 +157,7 @@ export async function startKanbanCC(
 export async function stopKanbanCC(projectId: string): Promise<void> {
   const key = `kanban:${projectId}`;
   killPTY(key);
+  cleanupPluginDir(`${os.tmpdir()}/claudehub-kanban-${projectId}`);
   await db.setKanbanCCStatus(projectId, {
     status: "stopped",
     lastActiveAt: new Date().toISOString(),
@@ -225,12 +238,23 @@ async function doStartTicketCC(
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
+  // Inject env vars for plugin skills and hooks
+  const project = await db.getProject(projectId);
+  const ccEnv: Record<string, string> = {
+    ...env,
+    API_BASE,
+    PROJECT_ID: projectId,
+    TICKET_NUMBER: String(ticket.number),
+    BASE_BRANCH: project?.baseBranch || "main",
+    WORKTREE_PATH: ticket.worktreePath,
+  };
+
   const instance = spawnPTY(
     key,
     CLAUDE_BIN,
     args,
     ticket.worktreePath,
-    env,
+    ccEnv,
     (data) => {
       broadcastTerminalOutput(key, data);
     },
@@ -238,6 +262,8 @@ async function doStartTicketCC(
       console.log(
         `Ticket CC for ${projectId}#${ticket.number} exited with code ${code}`,
       );
+      // Clean up assembled plugin dir
+      if (pluginDir) cleanupPluginDir(pluginDir);
       await db.removeFromRunning(projectId, ticket.number);
 
       if (code !== 0) {
@@ -303,6 +329,7 @@ async function doStartTicketCC(
 export async function stopTicketCC(projectId: string, number: number): Promise<void> {
   const key = `ticket:${projectId}:${number}`;
   killPTY(key);
+  cleanupPluginDir(`${os.tmpdir()}/claudehub-ticket-${projectId}-${number}`);
   await db.removeFromRunning(projectId, number);
   await db.removeFromQueue(projectId, number);
   await db.updateTicket(projectId, number, { ccStatus: "idle" });

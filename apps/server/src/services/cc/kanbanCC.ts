@@ -27,6 +27,7 @@ Base URL: ${apiBaseUrl}
 | PATCH | /api/projects/${projectId}/tickets/:number | Update ticket |
 | DELETE | /api/projects/${projectId}/tickets/:number | Delete ticket (?cascade=true) |
 | POST | /api/projects/${projectId}/tickets/:number/merge | Merge ticket (202 async) |
+| DELETE | /api/projects/${projectId}/tickets/:number/merge | Cancel in-progress merge |
 
 ### Create Ticket Body
 \`\`\`json
