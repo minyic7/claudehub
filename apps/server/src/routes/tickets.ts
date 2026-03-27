@@ -65,7 +65,9 @@ async function detectCycle(
 tickets.get("/", async (c) => {
   const projectId = c.req.param("projectId")!;
   const status = c.req.query("status") as TicketStatus | undefined;
-  const tickets = await db.getProjectTickets(projectId, { status });
+  const priorityRaw = c.req.query("priority");
+  const priority = priorityRaw !== undefined ? Number(priorityRaw) : undefined;
+  const tickets = await db.getProjectTickets(projectId, { status, priority });
   return c.json(tickets);
 });
 
@@ -626,7 +628,14 @@ async function doMerge(
     throw new Error("Merge lock expired during merge — another merge may have started");
   }
   try {
-    await waitForCD(project, 300_000);
+    const cd = await waitForCD(project, 300_000);
+    if (!cd.passed) {
+      broadcastEvent("merge:progress", projectId, {
+        number,
+        status: "cd_failed",
+        message: "CD failed on base branch — ticket is merged but deployment may need attention",
+      });
+    }
   } catch (err) {
     console.warn(`CD wait timed out or failed for ${projectId}#${number}:`, err);
     broadcastEvent("merge:progress", projectId, {
@@ -663,7 +672,7 @@ async function doMerge(
 async function waitForCD(
   project: { owner: string; repo: string; githubToken: string; baseBranch: string },
   timeoutMs: number,
-): Promise<void> {
+): Promise<{ passed: boolean }> {
   const start = Date.now();
   const pollInterval = 10_000; // 10s
 
@@ -676,8 +685,7 @@ async function waitForCD(
         project.githubToken, project.owner, project.repo, project.baseBranch,
       );
       if (!ci.pending) {
-        // CD either passed, failed, or doesn't exist — done waiting
-        return;
+        return { passed: ci.passed };
       }
     } catch {
       // API error — continue polling
