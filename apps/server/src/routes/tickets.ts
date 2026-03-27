@@ -307,12 +307,14 @@ tickets.patch("/:number", async (c) => {
       // Auto-start CC
       const { startTicketCC } = await import("../services/cc/manager.js");
       const { buildTicketSystemPrompt } = await import("../services/cc/ticketCC.js");
+      const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
       const systemPrompt = buildTicketSystemPrompt(
         projectId,
         number,
         ticket.title,
         body.description ?? ticket.description,
         body.taskBrief ?? ticket.taskBrief,
+        apiBaseUrl,
       );
       const settings = await db.getSettings();
       const env: Record<string, string> = {};
