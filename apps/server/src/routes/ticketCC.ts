@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import * as db from "../services/redis.js";
 import * as ccManager from "../services/cc/manager.js";
 import { buildTicketSystemPrompt } from "../services/cc/ticketCC.js";
+import { getPTY } from "../lib/pty.js";
 
 export const ticketCC = new Hono();
 
@@ -48,10 +49,13 @@ ticketCC.get("/", async (c) => {
 
   const data = await db.getTicketCCStatus(projectId, number);
   const running = ccManager.isTicketCCRunning(projectId, number);
+  const pty = getPTY(`ticket:${projectId}:${number}`);
+  const uptime = pty ? Math.floor((Date.now() - pty.startedAt.getTime()) / 1000) : undefined;
 
   return c.json({
     ccStatus: running ? "running" : (data.ccStatus || "idle"),
     pid: data.pid ? Number(data.pid) : undefined,
+    uptime,
     lastActiveAt: data.lastActiveAt,
   });
 });

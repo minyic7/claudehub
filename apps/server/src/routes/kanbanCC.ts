@@ -3,6 +3,7 @@ import * as db from "../services/redis.js";
 import * as ccManager from "../services/cc/manager.js";
 import { buildKanbanSystemPrompt } from "../services/cc/kanbanCC.js";
 import * as git from "../services/git/worktree.js";
+import { getPTY } from "../lib/pty.js";
 
 export const kanbanCC = new Hono();
 
@@ -52,10 +53,13 @@ kanbanCC.get("/", async (c) => {
   const projectId = c.req.param("projectId")!;
   const data = await db.getKanbanCCStatus(projectId);
   const running = ccManager.isKanbanCCRunning(projectId);
+  const pty = getPTY(`kanban:${projectId}`);
+  const uptime = pty ? Math.floor((Date.now() - pty.startedAt.getTime()) / 1000) : undefined;
 
   return c.json({
     status: running ? "running" : (data.status || "stopped"),
     pid: data.pid ? Number(data.pid) : undefined,
+    uptime,
     lastActiveAt: data.lastActiveAt,
   });
 });
