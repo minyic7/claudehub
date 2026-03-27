@@ -181,6 +181,7 @@ async function handlePushEvent(
         await db.updateTicket(project.id, ticket.number, {
           status: "in_progress",
           returnReason: "conflict",
+          ccStatus: "idle",
         });
         broadcastEvent("rebase:conflict", project.id, { number: ticket.number });
         broadcastEvent("ticket:status_changed", project.id, {

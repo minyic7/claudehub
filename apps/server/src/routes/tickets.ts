@@ -329,6 +329,7 @@ tickets.patch("/:number", async (c) => {
     if (to === "todo") {
       updates.status = "todo";
       updates.ccStatus = "idle";
+      updates.returnReason = undefined;
 
       // Stop CC + release slot
       const { stopTicketCC, scheduleNext } = await import("../services/cc/manager.js");
@@ -372,6 +373,7 @@ tickets.patch("/:number", async (c) => {
 
       updates.status = "reviewing";
       updates.ccStatus = "completed";
+      updates.returnReason = undefined;
 
       // Stop CC + release slot
       const { stopTicketCC } = await import("../services/cc/manager.js");

@@ -191,7 +191,9 @@ export async function rebaseWorktree(
     if (isConflict) {
       try {
         await exec("git", ["rebase", "--abort"], { cwd: wtPath });
-      } catch { /* best effort */ }
+      } catch (abortErr) {
+        console.warn(`git rebase --abort failed for ${branchName}:`, abortErr);
+      }
       return { success: false, conflict: true };
     }
 
