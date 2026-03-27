@@ -1,4 +1,5 @@
 FROM node:24-alpine AS build
+RUN apk add --no-cache python3 make g++
 RUN corepack enable pnpm
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
@@ -18,6 +19,6 @@ COPY --from=build /app/packages/shared/package.json packages/shared/
 COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/server/package.json apps/server/
 COPY --from=build /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile --prod
+RUN corepack enable pnpm && apk add --no-cache python3 make g++ && pnpm install --frozen-lockfile --prod && apk del python3 make g++
 EXPOSE 7700
 CMD ["node", "apps/server/dist/index.js"]
