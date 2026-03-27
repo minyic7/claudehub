@@ -8,22 +8,12 @@ import {
 import { broadcastTerminalOutput, broadcastEvent } from "../../lib/broadcast.js";
 import * as db from "../redis.js";
 import type { Ticket } from "@claudehub/shared";
-import path from "node:path";
-import fs from "node:fs/promises";
+import {
+  assembleKanbanPluginDir,
+  assembleTicketPluginDir,
+} from "../plugin/assembler.js";
 
 const CLAUDE_BIN = "claude";
-const PLUGINS_DIR = path.join(import.meta.dirname, "..", "..", "plugins");
-
-/** Return PLUGINS_DIR if it exists and contains files, else undefined */
-async function getPluginsDirIfPopulated(): Promise<string | undefined> {
-  try {
-    const files = await fs.readdir(PLUGINS_DIR);
-    if (files.some((f) => f.endsWith(".md") || f.endsWith(".json"))) {
-      return PLUGINS_DIR;
-    }
-  } catch { /* dir doesn't exist */ }
-  return undefined;
-}
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -74,8 +64,13 @@ export async function startKanbanCC(
     throw new Error("Kanban CC already running");
   }
 
-  // Auto-detect plugins dir if not explicitly provided
-  const pluginDir = options?.pluginDir ?? await getPluginsDirIfPopulated();
+  // Assemble kanban plugin directory
+  let pluginDir: string | undefined;
+  try {
+    pluginDir = await assembleKanbanPluginDir(projectId);
+  } catch (err) {
+    console.warn("Failed to assemble kanban plugin dir:", err);
+  }
 
   const args = [
     "--session-id",
@@ -209,8 +204,13 @@ async function doStartTicketCC(
     throw new Error("Ticket CC already running");
   }
 
-  // Auto-detect plugins dir if not explicitly provided
-  const pluginDir = options?.pluginDir ?? await getPluginsDirIfPopulated();
+  // Assemble ticket plugin directory
+  let pluginDir: string | undefined;
+  try {
+    pluginDir = await assembleTicketPluginDir(projectId, ticket.number);
+  } catch (err) {
+    console.warn(`Failed to assemble ticket plugin dir for #${ticket.number}:`, err);
+  }
 
   const args = [
     "--session-id",

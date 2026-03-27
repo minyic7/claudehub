@@ -375,6 +375,92 @@ project:lock:{projectId}            → String (connectionId)
 - GitHub 联动 1:1：ticket = Issue，状态通过 label 同步，merge 时创建 PR（`closes #N`），webhook 双向同步
 - Rebase 由 push webhook 统一触发（无论 ClaudeHub merge 还是外部 push），不在 merge 端点内处理
 
+## Plugins
+
+预定义 plugin 模板池，存放于 `apps/server/src/plugins/`。Kanban CC 按 ticket 分析结果选子集，Hono assembler 组装临时 plugin-dir 传给 CC。
+
+### Plugin 目录结构
+
+```
+apps/server/src/plugins/
+├── kanban/                          # Kanban CC 专用（全量加载）
+│   ├── ticket-crud/
+│   │   └── SKILL.md                 # 创建/更新/删除 ticket，调整 priority，设 taskBrief
+│   ├── ticket-review/
+│   │   └── SKILL.md                 # Review 流程：读 diff、检查质量、approve/reject
+│   └── cc-control/
+│       └── SKILL.md                 # 启停 Ticket CC、发消息指导
+│
+├── ticket/                          # Ticket CC 专用（按需组装）
+│   ├── ticket-status/
+│   │   └── SKILL.md                 # 更新自身 status（→reviewing）、汇报进度
+│   └── git-workflow/
+│       └── SKILL.md                 # commit → push → 等 CI → 自检完成度的标准流程
+│
+└── hooks/                           # 共享 Hooks
+    └── hooks.json                   # post-push 通知、文件边界保护
+```
+
+### Kanban CC Plugins
+
+Kanban CC **始终全量加载** `kanban/` 下所有 plugin。
+
+| Plugin | 类型 | 功能 |
+|--------|------|------|
+| `ticket-crud` | Skill | 通过 Hono API 创建/更新/删除 ticket。包含：设 title/description/type/priority、设 taskBrief（任务简报，spawn Ticket CC 时注入）、调整依赖关系。教 CC 使用 `curl` 调用 REST API |
+| `ticket-review` | Skill | Review 流程指南：`git diff base..branch` 读变更、检查测试覆盖、代码质量评估、approve（创建 PR）或 reject（打回 + 原因）。包含质量标准 checklist |
+| `cc-control` | Skill | Ticket CC 生命周期管理：启动/停止/发消息。用于介入指导（如"换个方案"、"先处理这个 bug"）、监控卡住的 CC |
+
+### Ticket CC Plugins
+
+Ticket CC **按需组装**，Kanban CC 在 taskBrief 中指定需要哪些 plugin（默认全部）。
+
+| Plugin | 类型 | 功能 |
+|--------|------|------|
+| `ticket-status` | Skill | 自身状态管理：编码完成后调 `PATCH /tickets/:number` 设 `status=reviewing`。包含完成度自检流程（对照 ticket description 逐条验证） |
+| `git-workflow` | Skill | 标准 git 工作流：commit message 规范、push 前自检、push 后等待 CI 通知（via `[SYSTEM]` 消息）、CI 失败时自动排查修复。包含分支命名规范和 rebase 指导 |
+
+### Shared Hooks
+
+所有 CC 共享的事件钩子。
+
+| Hook | 触发 | 功能 |
+|------|------|------|
+| `post-push` | PostToolUse (Bash, 匹配 `git push`) | 推送后日志记录，辅助 server 追踪推送事件 |
+| `file-boundary` | PreToolUse (Edit/Write) | 阻止 CC 修改 worktree 外的文件（安全边界，防止越权编辑其他 ticket 或系统文件） |
+
+### 组装流程
+
+1. Kanban CC 分析 ticket → 写入 `taskBrief`，可选指定 plugin 子集
+2. Hono `plugin/assembler.ts` 读取 taskBrief 中的 plugin 列表（或默认全部 ticket plugin）
+3. 组装临时目录：复制选中的 plugin + 共享 hooks → `/tmp/plugins-{ticketId}/`
+4. Spawn Ticket CC 时传入 `--plugin-dir /tmp/plugins-{ticketId}/`
+5. Kanban CC 自身固定传入 `--plugin-dir plugins/kanban/`（全量）
+
+### Skill 文件格式
+
+每个 SKILL.md 遵循 Claude Code plugin 规范：
+
+```markdown
+---
+description: 一行描述，CC 据此判断何时调用
+---
+
+# Skill 名称
+
+## 使用场景
+何时使用此 skill
+
+## API 端点
+具体的 curl 命令模板（含 URL、method、body 格式）
+
+## 流程
+分步骤指导 CC 执行
+
+## 注意事项
+边界条件、错误处理
+```
+
 ## Deployment
 
 Docker 部署（仅生产 build），CI/CD 每次 push 自动部署。
