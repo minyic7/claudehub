@@ -109,7 +109,7 @@ export async function startKanbanCC(
     async (code) => {
       console.log(`Kanban CC for ${projectId} exited with code ${code}`);
       // Clean up assembled plugin dir
-      if (pluginDir) cleanupPluginDir(pluginDir);
+      if (pluginDir) await cleanupPluginDir(pluginDir);
       await db.setKanbanCCStatus(projectId, {
         status: code === 0 ? "stopped" : "error",
         lastActiveAt: new Date().toISOString(),
@@ -265,7 +265,7 @@ async function doStartTicketCC(
         `Ticket CC for ${projectId}#${ticket.number} exited with code ${code}`,
       );
       // Clean up assembled plugin dir
-      if (pluginDir) cleanupPluginDir(pluginDir);
+      if (pluginDir) await cleanupPluginDir(pluginDir);
       await db.removeFromRunning(projectId, ticket.number);
 
       if (code !== 0) {
