@@ -89,10 +89,12 @@ export async function startKanbanCC(
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
   // Inject env vars for plugin skills
+  const project = await db.getProject(projectId);
   const ccEnv: Record<string, string> = {
     ...env,
     API_BASE,
     PROJECT_ID: projectId,
+    BASE_BRANCH: project?.baseBranch || "main",
   };
 
   const instance = spawnPTY(

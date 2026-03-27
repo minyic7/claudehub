@@ -11,8 +11,9 @@ When a ticket reaches `reviewing` status, perform a thorough code review.
 ### Step 1: Gather Context
 
 ```bash
-# Read ticket details
-curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER"
+# Read ticket details (extract branchName from response)
+TICKET=$(curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER")
+BRANCH_NAME=$(echo "$TICKET" | jq -r '.branchName')
 
 # View the diff against base branch
 git diff $BASE_BRANCH...$BRANCH_NAME
@@ -23,6 +24,8 @@ git diff --stat $BASE_BRANCH...$BRANCH_NAME
 # Read the commit history
 git log --oneline $BASE_BRANCH..$BRANCH_NAME
 ```
+
+Note: `$API_BASE`, `$PROJECT_ID`, and `$BASE_BRANCH` are environment variables. `$BRANCH_NAME` comes from the ticket API response.
 
 ### Step 2: Quality Checklist
 
