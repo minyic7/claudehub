@@ -1,15 +1,44 @@
-export type TicketStatus = "todo" | "in_progress" | "awaiting_merge" | "merged";
+export type TicketStatus = "todo" | "in_progress" | "reviewing" | "merged";
+
+export type TicketCCStatus = "idle" | "queued" | "running" | "completed";
+
+export type TicketType = "feature" | "bugfix" | "refactor" | "docs" | "chore";
+
+export type ReturnReason = "conflict" | "rejected";
 
 export interface Ticket {
   id: string;
   projectId: string;
+  number: number;
   title: string;
   description: string;
+  type: TicketType;
   status: TicketStatus;
-  branch: string;
+  ccStatus: TicketCCStatus;
+  priority: number;
+  branchName: string;
   worktreePath: string;
-  plugins: string[];
-  mcpServers: string[];
+  dependencies: number[];
+  githubIssueNumber: number;
+  githubPrNumber?: number;
+  taskBrief?: string;
+  returnReason?: ReturnReason;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateTicketInput {
+  title: string;
+  description: string;
+  type: TicketType;
+  priority?: number;
+  dependencies?: number[];
+}
+
+export interface UpdateTicketInput {
+  description?: string;
+  status?: TicketStatus;
+  priority?: number;
+  dependencies?: number[];
+  taskBrief?: string;
 }
