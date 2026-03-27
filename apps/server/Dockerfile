@@ -9,20 +9,19 @@ RUN pnpm install --frozen-lockfile
 COPY packages/shared/ packages/shared/
 COPY apps/server/ apps/server/
 RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/server build
-# Prune devDependencies so we can copy a clean node_modules to production
-RUN pnpm prune --prod
 
 FROM node:24-alpine
 RUN npm install -g @anthropic-ai/claude-code
-RUN apk add --no-cache git curl libstdc++
+RUN apk add --no-cache git curl python3 make g++
+RUN corepack enable pnpm
 WORKDIR /app
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/shared/package.json packages/shared/
 COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/server/package.json apps/server/
-COPY --from=build /app/package.json /app/pnpm-workspace.yaml ./
-COPY --from=build /app/node_modules node_modules/
-COPY --from=build /app/apps/server/node_modules apps/server/node_modules/
-COPY --from=build /app/packages/shared/node_modules packages/shared/node_modules/
+COPY --from=build /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/tsconfig.base.json ./
+RUN pnpm install --frozen-lockfile --prod \
+    && apk del python3 make g++ \
+    && apk add --no-cache libstdc++
 EXPOSE 7700
 CMD ["node", "apps/server/dist/index.js"]
