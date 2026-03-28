@@ -9,6 +9,8 @@ interface TerminalViewProps {
   projectId: string;
   ticketNumber?: number;
   onExit?: () => void;
+  /** Pass the panel's current pixel width so we can re-fit on drag resize */
+  panelWidth?: number;
 }
 
 export default function TerminalView({
@@ -16,6 +18,7 @@ export default function TerminalView({
   projectId,
   ticketNumber,
   onExit,
+  panelWidth,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -86,6 +89,22 @@ export default function TerminalView({
       terminalRef.current = null;
     };
   }, [attach, sendResize, fontReady]);
+
+  // Re-fit terminal when panel width changes (drag resize)
+  useEffect(() => {
+    if (panelWidth == null) return;
+    const fitAddon = fitAddonRef.current;
+    const terminal = terminalRef.current;
+    if (!fitAddon || !terminal) return;
+    // rAF so the DOM has applied the new width before we measure
+    const id = requestAnimationFrame(() => {
+      try {
+        fitAddon.fit();
+      } catch { return; }
+      sendResize(terminal.cols, terminal.rows);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [panelWidth, sendResize]);
 
   return (
     <div className="flex-1 relative">

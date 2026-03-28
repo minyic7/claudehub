@@ -169,7 +169,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
       {activeTab === "kanban" && (
         <div ref={termAreaRef} className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
-            <TerminalView type="kanban" projectId={projectId} />
+            <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
           ) : loginRunning ? (
             <div className="flex-1 flex flex-col">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-default">
@@ -188,6 +188,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                   type="login"
                   projectId={projectId}
                   onExit={() => setLoginRunning(false)}
+                  panelWidth={width}
                 />
               </div>
             </div>
@@ -217,6 +218,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
             type="ticket"
             projectId={projectId}
             ticketNumber={activeTicketNumber}
+            panelWidth={width}
           />
         </div>
       )}
