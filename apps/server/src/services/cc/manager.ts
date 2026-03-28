@@ -31,6 +31,8 @@ const INITIAL_RESTART_DELAY_MS = 2000;
 
 // Track restart attempts per CC key
 const restartAttempts = new Map<string, number>();
+// Track manually stopped CCs to prevent auto-restart after kill
+const manuallyStopped = new Set<string>();
 
 function getRestartDelay(key: string): number | null {
   const attempts = (restartAttempts.get(key) || 0) + 1;
@@ -70,6 +72,7 @@ export async function startKanbanCC(
   options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
 ): Promise<{ pid: number }> {
   const key = `kanban:${projectId}`;
+  manuallyStopped.delete(key);
   const existing = getPTY(key);
   if (existing) {
     throw new Error("Kanban CC already running");
@@ -119,15 +122,18 @@ export async function startKanbanCC(
       console.log(`Kanban CC for ${projectId} exited with code ${code}`);
       // Clean up assembled plugin dir
       if (pluginDir) await cleanupPluginDir(pluginDir);
-      await db.setKanbanCCStatus(projectId, {
-        status: code === 0 ? "stopped" : "error",
-        lastActiveAt: new Date().toISOString(),
-      });
-      broadcastEvent("kanban_cc:status_changed", projectId, {
-        status: code === 0 ? "stopped" : "error",
-      });
-      // Auto-restart on crash with backoff
-      if (code !== 0) {
+      // Skip status update if manually stopped (stopKanbanCC handles it)
+      if (!manuallyStopped.has(key)) {
+        await db.setKanbanCCStatus(projectId, {
+          status: code === 0 ? "stopped" : "error",
+          lastActiveAt: new Date().toISOString(),
+        });
+        broadcastEvent("kanban_cc:status_changed", projectId, {
+          status: code === 0 ? "stopped" : "error",
+        });
+      }
+      // Auto-restart on crash with backoff (skip if manually stopped)
+      if (code !== 0 && !manuallyStopped.has(key)) {
         const delay = getRestartDelay(key);
         if (delay === null) {
           console.error(`Kanban CC for ${projectId} exceeded max restart attempts, giving up`);
@@ -168,6 +174,8 @@ export async function startKanbanCC(
 
 export async function stopKanbanCC(projectId: string): Promise<void> {
   const key = `kanban:${projectId}`;
+  manuallyStopped.add(key);
+  resetRestartAttempts(key);
   killPTY(key);
   cleanupPluginDir(`${os.tmpdir()}/claudehub-kanban-${projectId}`);
   await db.setKanbanCCStatus(projectId, {
@@ -224,6 +232,7 @@ async function doStartTicketCC(
   options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
 ): Promise<{ pid: number; queued: boolean }> {
   const key = `ticket:${projectId}:${ticket.number}`;
+  manuallyStopped.delete(key);
   const existing = getPTY(key);
   if (existing) {
     throw new Error("Ticket CC already running");
@@ -276,6 +285,11 @@ async function doStartTicketCC(
       );
       // Clean up assembled plugin dir
       if (pluginDir) await cleanupPluginDir(pluginDir);
+      // Skip state updates if manually stopped (stopTicketCC handles it)
+      if (manuallyStopped.has(key)) {
+        scheduleNext();
+        return;
+      }
       await db.removeFromRunning(projectId, ticket.number);
 
       if (code !== 0) {
@@ -341,6 +355,8 @@ async function doStartTicketCC(
 
 export async function stopTicketCC(projectId: string, number: number): Promise<void> {
   const key = `ticket:${projectId}:${number}`;
+  manuallyStopped.add(key);
+  resetRestartAttempts(key);
   killPTY(key);
   cleanupPluginDir(`${os.tmpdir()}/claudehub-ticket-${projectId}-${number}`);
   await db.removeFromRunning(projectId, number);
