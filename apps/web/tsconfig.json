@@ -11,5 +11,5 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["src"]
+  "include": ["src", "vite-env.d.ts"]
 }

@@ -1,1 +1,116 @@
 @import "tailwindcss";
+@import "./animations.css";
+
+/* ── Fonts ── */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("https://fonts.gstatic.com/s/pressstart2p/v15/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("https://fonts.gstatic.com/s/jetbrainsmono/v21/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOTk6OThhvA.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("https://fonts.gstatic.com/s/jetbrainsmono/v21/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTPlOTk6OThhvA.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: optional;
+}
+
+/* ── Design Tokens ── */
+@theme {
+  /* Background layers */
+  --color-bg-base: #080808;
+  --color-bg-surface: #0E0E0E;
+  --color-bg-card: #161616;
+  --color-bg-elevated: #1C1C1C;
+  --color-bg-input: #121212;
+
+  /* Accent */
+  --color-accent: #E8941C;
+  --color-accent-hover: #F0A030;
+  --color-accent-dim: #E8941C33;
+
+  /* Text */
+  --color-text-primary: #C0C0C0;
+  --color-text-secondary: #808080;
+  --color-text-muted: #505050;
+  --color-text-accent: #E8941C;
+
+  /* Border */
+  --color-border-default: #1C1C1C;
+  --color-border-hover: #2A2A2A;
+  --color-border-active: #E8941C;
+
+  /* Status */
+  --color-status-ok: #5ED490;
+  --color-status-warn: #E8C040;
+  --color-status-error: #E06060;
+  --color-status-info: #70B8F0;
+
+  /* Cat eye */
+  --color-eye-todo: #808080;
+  --color-eye-progress: #5ED490;
+  --color-eye-review: #E8C040;
+  --color-eye-merged: #70B8F0;
+
+  /* Fonts */
+  --font-pixel: "Press Start 2P", monospace;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Spacing */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+}
+
+/* ── Base styles ── */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent-dim);
+  color: var(--color-text-primary);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+}

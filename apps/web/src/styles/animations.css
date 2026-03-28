@@ -1,0 +1,115 @@
+/* ── Keyframe Animations ── */
+
+/* Crawling dashed border for running tickets */
+@keyframes crawl {
+  from { background-position: 0 0; }
+  to { background-position: 16px 16px; }
+}
+
+/* Scanline scroll */
+@keyframes scanline-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 23px; }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  from { background-position: -200px 0; }
+  to { background-position: 200px 0; }
+}
+
+/* Gentle pulse for accent elements */
+@keyframes pulse-accent {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+/* Cat eye pulse for running status */
+@keyframes pulse-eye {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Shake animation for conflict badge */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+
+/* 3-dot bounce for button loading */
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+}
+
+/* Merge progress pulse */
+@keyframes merge-pulse {
+  0%, 100% { border-color: rgba(232, 148, 28, 0.3); }
+  50% { border-color: rgba(232, 148, 28, 0.7); }
+}
+
+/* Floating zzz for sleeping cat */
+@keyframes float-zzz {
+  0% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(8px, -12px); }
+}
+
+/* Cat gentle float */
+@keyframes cat-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.5px); }
+}
+
+/* View Only badge pulse */
+@keyframes badge-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* ── Utility classes ── */
+
+.animate-crawl {
+  animation: crawl 3s linear infinite;
+}
+
+.animate-scanline {
+  animation: scanline-scroll 5s linear infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg, var(--color-bg-card) 0%, var(--color-bg-elevated) 50%, var(--color-bg-card) 100%);
+  background-size: 400px 100%;
+}
+
+.animate-pulse-accent {
+  animation: pulse-accent 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-eye {
+  animation: pulse-eye 2s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 300ms ease-out;
+}
+
+.animate-merge-pulse {
+  animation: merge-pulse 1.5s ease-in-out infinite;
+}
+
+.animate-cat-float {
+  animation: cat-float 3s ease-in-out infinite;
+}
+
+.animate-badge-pulse {
+  animation: badge-pulse 3s ease-in-out infinite;
+}
+
+/* Dot bounce for loading buttons */
+.dot-bounce span:nth-child(1) { animation: dot-bounce 1s ease-in-out infinite 0ms; }
+.dot-bounce span:nth-child(2) { animation: dot-bounce 1s ease-in-out infinite 150ms; }
+.dot-bounce span:nth-child(3) { animation: dot-bounce 1s ease-in-out infinite 300ms; }

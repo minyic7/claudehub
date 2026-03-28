@@ -76,6 +76,7 @@ export function addTerminalClient(
     // existing includes the one we just added, so if size === 1, we're the first
     if (existing.length <= 1) {
       operatorLocks.set(projectId, connectionId);
+      broadcastEvent("operator:changed", projectId, { operatorConnectionId: connectionId });
     }
   }
 }
@@ -108,12 +109,21 @@ export function removeTerminalClient(
     const remaining = getAllTerminalClientsForProject(projectId);
     if (remaining.length === 1) {
       operatorLocks.set(projectId, remaining[0].connectionId);
+      broadcastEvent("operator:changed", projectId, { operatorConnectionId: remaining[0].connectionId });
+    } else if (remaining.length === 0) {
+      broadcastEvent("operator:changed", projectId, { operatorConnectionId: null });
+    } else {
+      broadcastEvent("operator:changed", projectId, { operatorConnectionId: null });
     }
   }
 }
 
 export function isOperator(projectId: string, connectionId: string): boolean {
   return operatorLocks.get(projectId) === connectionId;
+}
+
+export function getOperatorConnectionId(projectId: string): string | null {
+  return operatorLocks.get(projectId) ?? null;
 }
 
 export function broadcastTerminalOutput(key: string, data: Buffer): void {
@@ -137,6 +147,9 @@ export function broadcastTerminalOutput(key: string, data: Buffer): void {
         const remaining = getAllTerminalClientsForProject(projectId);
         if (remaining.length === 1) {
           operatorLocks.set(projectId, remaining[0].connectionId);
+          broadcastEvent("operator:changed", projectId, { operatorConnectionId: remaining[0].connectionId });
+        } else {
+          broadcastEvent("operator:changed", projectId, { operatorConnectionId: null });
         }
         break;
       }

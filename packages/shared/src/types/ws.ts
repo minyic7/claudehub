@@ -12,7 +12,16 @@ export type WSEventType =
   | "ci:completed"
   | "cd:completed"
   | "cd:failed"
-  | "kanban_cc:status_changed";
+  | "kanban_cc:status_changed"
+  | "operator:changed";
+
+export type MergeProgressStep =
+  | "creating_pr"
+  | "merging"
+  | "waiting_cd"
+  | "cd_failed"
+  | "cd_timeout"
+  | "merged";
 
 export interface WSEvent {
   type: WSEventType;

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
 import App from "./App.js";
 import "./styles/globals.css";
+import "./styles/animations.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

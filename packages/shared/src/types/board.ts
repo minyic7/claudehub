@@ -19,4 +19,5 @@ export interface BoardView {
   kanbanCCStatus: "running" | "stopped" | "error";
   columns: BoardColumn[];
   stats: BoardStats;
+  operatorConnectionId: string | null;
 }

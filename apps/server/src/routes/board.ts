@@ -5,6 +5,7 @@ import * as db from "../services/redis.js";
 import * as ccManager from "../services/cc/manager.js";
 import { buildKanbanSystemPrompt } from "../services/cc/kanbanCC.js";
 import * as git from "../services/git/worktree.js";
+import { getOperatorConnectionId } from "../lib/broadcast.js";
 
 export const board = new Hono();
 
@@ -62,6 +63,7 @@ board.get("/", async (c) => {
     kanbanCCStatus: kanbanStatus,
     columns,
     stats,
+    operatorConnectionId: getOperatorConnectionId(projectId),
   };
 
   return c.json(view);

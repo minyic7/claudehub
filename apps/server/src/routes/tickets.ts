@@ -234,8 +234,23 @@ tickets.patch("/:number", async (c) => {
       return c.json({ error: "Priority 0 is reserved for system use" }, 400);
     }
     const all = await db.getProjectTickets(projectId);
-    if (all.some((t) => t.priority === body.priority && t.number !== number && t.status !== "merged")) {
-      return c.json({ error: `Priority ${body.priority} already in use` }, 409);
+    const nonMerged = all.filter((t) => t.status !== "merged" && t.number !== number);
+
+    // Shift other tickets to make room for the new priority
+    const conflicting = nonMerged.filter((t) => t.priority >= body.priority!);
+    if (conflicting.length > 0) {
+      // Sort ascending so we shift from the target position outward
+      conflicting.sort((a, b) => a.priority - b.priority);
+      let nextPriority = body.priority!;
+      for (const t of conflicting) {
+        if (t.priority === nextPriority) {
+          await db.updateTicket(projectId, t.number, { priority: t.priority + 1 });
+          broadcastEvent("ticket:updated", projectId, { number: t.number, changes: { priority: t.priority + 1 } });
+          nextPriority = t.priority + 1;
+        } else {
+          break; // No more conflicts
+        }
+      }
     }
     updates.priority = body.priority;
 
