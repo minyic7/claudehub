@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
@@ -17,6 +17,22 @@ function estimateTermSize(el: HTMLElement): { cols: number; rows: number } {
   };
 }
 
+const MIN_WIDTH = 300;
+const MAX_WIDTH_RATIO = 0.7;
+const DEFAULT_WIDTH = 420;
+const STORAGE_KEY = "claudehub:terminal-width";
+
+function loadWidth(): number {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    if (v) {
+      const n = Number(v);
+      if (n >= MIN_WIDTH) return n;
+    }
+  } catch {}
+  return DEFAULT_WIDTH;
+}
+
 interface TerminalPanelProps {
   projectId: string;
 }
@@ -30,7 +46,42 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const [loginLoading, setLoginLoading] = useState(false);
   const termAreaRef = useRef<HTMLDivElement>(null);
 
+  const [width, setWidth] = useState(loadWidth);
+  const draggingRef = useRef(false);
+
   const kanbanRunning = kanbanCCStatus === "running";
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = width;
+    const maxWidth = window.innerWidth * MAX_WIDTH_RATIO;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      // Dragging left border: moving mouse left = wider panel
+      const delta = startX - ev.clientX;
+      const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta));
+      setWidth(next);
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      // persist
+      setWidth((w) => {
+        localStorage.setItem(STORAGE_KEY, String(Math.round(w)));
+        return w;
+      });
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [width]);
 
   const handleStartLogin = async () => {
     setLoginLoading(true);
@@ -74,7 +125,12 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   }
 
   return (
-    <div className="w-[420px] shrink-0 bg-bg-surface border-l border-border-default flex flex-col">
+    <div className="shrink-0 bg-bg-surface border-l border-border-default flex flex-col relative" style={{ width }}>
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragStart}
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 transition-colors z-20"
+      />
       {/* Tab bar */}
       <div className="flex border-b border-border-default">
         <button
