@@ -95,6 +95,18 @@ export function useTerminalWs({
 
   const attach = useCallback((terminal: Terminal) => {
     terminalRef.current = terminal;
+
+    // Shift+Enter → newline instead of submit
+    terminal.attachCustomKeyEventHandler((e) => {
+      if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send("\n");
+        }
+        return false; // Prevent default Enter handling
+      }
+      return true;
+    });
+
     terminal.onData((data) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(data);
