@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -18,6 +18,7 @@ export default function TerminalView({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const [fontReady, setFontReady] = useState(false);
 
   const { attach, sendResize, connected } = useTerminalWs({
     type,
@@ -25,8 +26,15 @@ export default function TerminalView({
     ticketNumber,
   });
 
+  // Wait for JetBrains Mono to load before initializing terminal
   useEffect(() => {
-    if (!containerRef.current) return;
+    document.fonts.load("13px 'JetBrains Mono'").then(() => {
+      setFontReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || !fontReady) return;
 
     const terminal = new Terminal({
       fontFamily: "'JetBrains Mono', monospace",
@@ -71,14 +79,14 @@ export default function TerminalView({
       terminal.dispose();
       terminalRef.current = null;
     };
-  }, [attach, sendResize]);
+  }, [attach, sendResize, fontReady]);
 
   return (
     <div className="flex-1 relative">
-      {!connected && (
+      {(!connected || !fontReady) && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-base/80 z-10">
           <span className="font-pixel text-[8px] text-text-secondary">
-            Connecting...
+            {fontReady ? "Connecting..." : "Loading font..."}
           </span>
         </div>
       )}
