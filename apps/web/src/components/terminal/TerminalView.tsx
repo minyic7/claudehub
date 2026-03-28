@@ -19,7 +19,7 @@ export default function TerminalView({
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
 
-  const { attach, connected } = useTerminalWs({
+  const { attach, sendResize, connected } = useTerminalWs({
     type,
     projectId,
     ticketNumber,
@@ -57,8 +57,12 @@ export default function TerminalView({
 
     attach(terminal);
 
+    // Send initial size
+    sendResize(terminal.cols, terminal.rows);
+
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
+      sendResize(terminal.cols, terminal.rows);
     });
     resizeObserver.observe(containerRef.current);
 
@@ -67,7 +71,7 @@ export default function TerminalView({
       terminal.dispose();
       terminalRef.current = null;
     };
-  }, [attach]);
+  }, [attach, sendResize]);
 
   return (
     <div className="flex-1 relative">

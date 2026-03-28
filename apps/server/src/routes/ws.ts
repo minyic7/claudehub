@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
-import { getPTY } from "../lib/pty.js";
+import { getPTY, resizePTY } from "../lib/pty.js";
 import {
   addEventClient,
   removeEventClient,
@@ -9,6 +9,23 @@ import {
   isOperator,
 } from "../lib/broadcast.js";
 import { verifyToken } from "../lib/auth.js";
+
+const RESIZE_PREFIX = 0x01;
+
+/** Try to parse a resize message (0x01 + JSON {cols, rows}). Returns null if not a resize. */
+function parseResize(data: ArrayBuffer | string): { cols: number; rows: number } | null {
+  if (typeof data === "string") return null;
+  const bytes = new Uint8Array(data);
+  if (bytes.length < 2 || bytes[0] !== RESIZE_PREFIX) return null;
+  try {
+    const json = new TextDecoder().decode(bytes.slice(1));
+    const { cols, rows } = JSON.parse(json);
+    if (typeof cols === "number" && typeof rows === "number" && cols > 0 && rows > 0) {
+      return { cols, rows };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
 export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
   const app = new Hono();
@@ -69,6 +86,11 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
           if (!isOperator(projectId, connectionId)) return;
 
           const key = `kanban:${projectId}`;
+          const resize = parseResize(event.data as ArrayBuffer | string);
+          if (resize) {
+            resizePTY(key, resize.cols, resize.rows);
+            return;
+          }
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"
@@ -120,6 +142,11 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
           if (!isOperator(projectId, connectionId)) return;
 
           const key = `ticket:${projectId}:${number}`;
+          const resize = parseResize(event.data as ArrayBuffer | string);
+          if (resize) {
+            resizePTY(key, resize.cols, resize.rows);
+            return;
+          }
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"
@@ -166,6 +193,11 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
         },
         onMessage(event, ws) {
           const key = "login";
+          const resize = parseResize(event.data as ArrayBuffer | string);
+          if (resize) {
+            resizePTY(key, resize.cols, resize.rows);
+            return;
+          }
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"

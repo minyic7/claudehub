@@ -75,8 +75,8 @@ export function spawnPTY(
 
   const ptyProcess = spawn(command, args, {
     name: "xterm-256color",
-    cols: 120,
-    rows: 40,
+    cols: 80,
+    rows: 24,
     cwd,
     env: mergedEnv,
   });
@@ -125,6 +125,17 @@ export function writeToPTY(key: string, data: string): boolean {
   const instance = instances.get(key);
   if (!instance) return false;
   instance.pty.write(data);
+  return true;
+}
+
+export function resizePTY(key: string, cols: number, rows: number): boolean {
+  const instance = instances.get(key);
+  if (!instance) return false;
+  try {
+    instance.pty.resize(cols, rows);
+  } catch {
+    // Process may already be dead
+  }
   return true;
 }
 
