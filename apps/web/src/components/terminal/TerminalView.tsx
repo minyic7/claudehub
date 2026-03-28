@@ -29,20 +29,18 @@ export default function TerminalView({
     onExit,
   });
 
-  // Wait for JetBrains Mono to load before initializing terminal
+  // Font readiness check
   useEffect(() => {
-    document.fonts.load("13px 'JetBrains Mono'").then(() => {
-      setFontReady(true);
-    });
+    // System fonts are always ready
+    setFontReady(true);
   }, []);
 
   useEffect(() => {
     if (!containerRef.current || !fontReady) return;
 
     const terminal = new Terminal({
-      fontFamily: "'JetBrains Mono', monospace",
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       fontSize: 13,
-      lineHeight: 1.4,
       theme: {
         background: "#0a0a0f",
         foreground: "#c8c8d4",

@@ -7,9 +7,9 @@ import CatScene from "./CatScene.js";
 
 // Estimate terminal cols/rows from a container element
 function estimateTermSize(el: HTMLElement): { cols: number; rows: number } {
-  // JetBrains Mono at 13px: ~7.8px per char, line-height 1.4 = ~18.2px per row
+  // Menlo at 13px: ~7.8px per char, default line-height ~1.2 = ~15.6px per row
   const charWidth = 7.8;
-  const charHeight = 13 * 1.4;
+  const charHeight = 13 * 1.2;
   const rect = el.getBoundingClientRect();
   return {
     cols: Math.max(20, Math.floor(rect.width / charWidth)),
