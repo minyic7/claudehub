@@ -3,8 +3,6 @@ import type { BoardView, BoardColumn, BoardStats, TicketStatus } from "@claudehu
 import { TICKET_COLUMNS } from "@claudehub/shared";
 import * as db from "../services/redis.js";
 import * as ccManager from "../services/cc/manager.js";
-import { buildKanbanSystemPrompt } from "../services/cc/kanbanCC.js";
-import * as git from "../services/git/worktree.js";
 import { getOperatorConnectionId } from "../lib/broadcast.js";
 
 export const board = new Hono();
@@ -14,24 +12,6 @@ board.get("/", async (c) => {
   const projectId = c.req.param("projectId")!;
   const project = await db.getProject(projectId);
   if (!project) return c.json({ error: "Project not found" }, 404);
-
-  // Auto-start Kanban CC if not running
-  if (!ccManager.isKanbanCCRunning(projectId)) {
-    try {
-      const worktreePath = await git.addKanbanWorktree(
-        project.owner, project.repo, project.baseBranch,
-        { skipUpdate: true },
-      );
-      const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
-      const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl);
-      const settings = await db.getSettings();
-      const env: Record<string, string> = {};
-      if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
-      await ccManager.startKanbanCC(projectId, worktreePath, systemPrompt, env);
-    } catch (err) {
-      console.warn(`Failed to auto-start Kanban CC for ${projectId}:`, err);
-    }
-  }
 
   const tickets = await db.getProjectTickets(projectId);
 

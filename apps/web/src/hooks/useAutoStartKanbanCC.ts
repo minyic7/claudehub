@@ -12,8 +12,12 @@ export function useAutoStartKanbanCC(projectId: string | undefined) {
         const info = await api.getKanbanCC(projectId!);
         useBoardStore.setState({ kanbanCCStatus: info.status });
         if (info.status === "stopped") {
+          // Only auto-start if we have an API key; otherwise user needs
+          // to login via the terminal or set a key in Settings first
+          const apiKey = getApiKey();
+          if (!apiKey) return;
           try {
-            await api.startKanbanCC(projectId!, getApiKey());
+            await api.startKanbanCC(projectId!, apiKey);
             useBoardStore.setState({ kanbanCCStatus: "running" });
           } catch {
             // 409 = already running, silently ignore
