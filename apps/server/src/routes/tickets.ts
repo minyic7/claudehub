@@ -684,6 +684,15 @@ async function doMerge(
     from: "reviewing",
     to: "merged",
   });
+
+  // Notify Kanban CC about the merge
+  const { sendToKanbanCC, isKanbanCCRunning } = await import("../services/cc/manager.js");
+  if (isKanbanCCRunning(projectId)) {
+    sendToKanbanCC(
+      projectId,
+      `[SYSTEM] Ticket #${number} "${ticket.title}" has been merged. Your worktree has been updated to the latest base branch. Please review remaining tickets and proceed.`,
+    );
+  }
 }
 
 async function waitForCD(
