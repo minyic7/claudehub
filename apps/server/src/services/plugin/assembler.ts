@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-const PLUGINS_DIR = path.join(import.meta.dirname, "..", "..", "plugins");
+// Resolve plugins dir relative to project root, not the compiled dist/ output
+const PLUGINS_DIR = path.join(import.meta.dirname, "..", "..", "..", "src", "plugins");
 
 /**
  * Assemble a plugin directory for Kanban CC.

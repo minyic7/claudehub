@@ -91,8 +91,8 @@ export async function startKanbanCC(
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
+    "--resume",
   ];
-  if (options?.resume) args.push("--resume");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -149,7 +149,8 @@ export async function startKanbanCC(
     },
   );
 
-  resetRestartAttempts(key);
+  // Only reset restart attempts on manual (non-resume) starts
+  if (!options?.resume) resetRestartAttempts(key);
 
   await db.setKanbanCCStatus(projectId, {
     status: "running",
@@ -244,8 +245,8 @@ async function doStartTicketCC(
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
+    "--resume",
   ];
-  if (options?.resume) args.push("--resume");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -318,7 +319,8 @@ async function doStartTicketCC(
     },
   );
 
-  resetRestartAttempts(key);
+  // Only reset restart attempts on non-resume starts
+  if (!options?.resume) resetRestartAttempts(key);
 
   await db.addToRunning(projectId, ticket.number);
   await db.removeFromQueue(projectId, ticket.number);
