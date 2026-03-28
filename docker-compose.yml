@@ -21,7 +21,7 @@ services:
     volumes:
       - repos-data:/repos
       - ~/.claude:/home/claudehub/.claude
-      - ~/.claude.json:/home/claudehub/.claude.json:ro
+      - ~/.claude.json:/home/claudehub/.claude.json
     env_file:
       - path: .env
         required: false
