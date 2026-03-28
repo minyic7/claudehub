@@ -103,6 +103,7 @@ export async function startKanbanCC(
     API_BASE,
     PROJECT_ID: projectId,
     BASE_BRANCH: project?.baseBranch || "main",
+    WORKTREE_PATH: worktreePath,
   };
 
   const instance = spawnPTY(

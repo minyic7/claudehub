@@ -18,9 +18,9 @@ export async function assembleKanbanPluginDir(projectId: string): Promise<string
   const kanbanSkillsDir = path.join(PLUGINS_DIR, "kanban", "skills");
   await copyDirRecursive(kanbanSkillsDir, path.join(targetDir, "skills"));
 
-  // Copy shared hooks
-  const sharedHooksDir = path.join(PLUGINS_DIR, "shared", "hooks");
-  await copyDirRecursive(sharedHooksDir, path.join(targetDir, "hooks"));
+  // Copy kanban-specific hooks (protect main branch from writes)
+  const kanbanHooksDir = path.join(PLUGINS_DIR, "kanban", "hooks");
+  await copyDirRecursive(kanbanHooksDir, path.join(targetDir, "hooks"));
 
   return targetDir;
 }
