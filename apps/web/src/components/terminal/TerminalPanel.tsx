@@ -44,11 +44,11 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
   const columns = useBoardStore((s) => s.columns);
 
-  // Derive running/queued ticket numbers from board state
+  // Derive running/queued/completed ticket numbers from board state
   const activeTicketNumbers = useMemo(() => {
     const tickets = columns.flatMap((col) => col.tickets);
     return tickets
-      .filter((t) => t.ccStatus === "running" || t.ccStatus === "queued")
+      .filter((t) => t.ccStatus === "running" || t.ccStatus === "queued" || t.ccStatus === "completed")
       .sort((a, b) => a.number - b.number)
       .map((t) => t.number);
   }, [columns]);

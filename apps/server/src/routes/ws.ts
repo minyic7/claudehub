@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
-import { getPTY, resizePTY } from "../lib/pty.js";
+import { getPTY, resizePTY, getRingBuffer } from "../lib/pty.js";
 import {
   addEventClient,
   removeEventClient,
@@ -136,7 +136,9 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
 
           const key = `ticket:${projectId}:${number}`;
           const pty = getPTY(key);
-          if (!pty) {
+          const ringBuffer = getRingBuffer(key);
+
+          if (!pty && !ringBuffer) {
             ws.close(1011, "Ticket CC not running");
             return;
           }
@@ -144,7 +146,7 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
           const rawWs = ws.raw as unknown as import("ws").WebSocket;
           addTerminalClient(key, rawWs, connectionId, projectId);
 
-          const history = pty.ringBuffer.getHistory();
+          const history = (pty?.ringBuffer ?? ringBuffer)!.getHistory();
           if (history.length > 0) {
             ws.send(new Uint8Array(history));
           }

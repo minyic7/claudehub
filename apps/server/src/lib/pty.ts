@@ -58,6 +58,8 @@ export interface PTYInstance {
 }
 
 const instances = new Map<string, PTYInstance>();
+// Ring buffers preserved after PTY exit, for viewing terminal history
+const orphanedBuffers = new Map<string, RingBuffer>();
 
 export function spawnPTY(
   key: string,
@@ -71,6 +73,7 @@ export function spawnPTY(
 ): PTYInstance {
   // Kill existing if any
   killPTY(key);
+  orphanedBuffers.delete(key);
 
   const mergedEnv = { ...process.env, ...env } as Record<string, string>;
 
@@ -91,6 +94,11 @@ export function spawnPTY(
   });
 
   ptyProcess.onExit(({ exitCode }) => {
+    const inst = instances.get(key);
+    if (inst) {
+      // Preserve ring buffer for post-mortem viewing
+      orphanedBuffers.set(key, inst.ringBuffer);
+    }
     instances.delete(key);
     onExit?.(exitCode);
   });
@@ -138,6 +146,18 @@ export function resizePTY(key: string, cols: number, rows: number): boolean {
     // Process may already be dead
   }
   return true;
+}
+
+/** Get ring buffer for a key — checks active PTY first, then orphaned buffers */
+export function getRingBuffer(key: string): RingBuffer | undefined {
+  const instance = instances.get(key);
+  if (instance) return instance.ringBuffer;
+  return orphanedBuffers.get(key);
+}
+
+/** Remove orphaned ring buffer (e.g., when ticket is deleted) */
+export function clearRingBuffer(key: string): void {
+  orphanedBuffers.delete(key);
 }
 
 export function getAllPTYKeys(): string[] {
