@@ -6,11 +6,12 @@ import Spinner from "../components/ui/Spinner.js";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/utils.js";
 
 import type { SettingsResponse } from "@claudehub/shared";
+import { DEFAULT_MAX_CONCURRENT_TICKETS } from "@claudehub/shared";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
-  const [maxConcurrent, setMaxConcurrent] = useState("20");
+  const [maxConcurrent, setMaxConcurrent] = useState(String(DEFAULT_MAX_CONCURRENT_TICKETS));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -20,7 +21,7 @@ export default function SettingsPage() {
       setSettings(s);
       // Prefer localStorage value, fall back to server (masked)
       setApiKeyInput(getApiKey() || s.anthropicApiKey || "");
-      setMaxConcurrent(String(s.maxConcurrentTickets ?? 20));
+      setMaxConcurrent(String(s.maxConcurrentTickets ?? DEFAULT_MAX_CONCURRENT_TICKETS));
       setLoading(false);
     });
   }, []);
