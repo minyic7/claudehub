@@ -24,7 +24,7 @@ interface BoardStore {
   handleTicketCreated: (ticket: Ticket) => void;
   handleTicketUpdated: (data: { number: number; changes: Partial<Ticket> }) => void;
   handleTicketDeleted: (data: { number: number }) => void;
-  handleStatusChanged: (data: { number: number; from: string; to: string; ccStatus: string }) => void;
+  handleStatusChanged: (data: { number: number; from?: string; to?: string; ccStatus?: string }) => void;
   handleMergeProgress: (data: { number: number; step: string }) => void;
   handleRebaseEvent: (data: { number: number; event: string }) => void;
   handleCICompleted: (data: { number: number; passed: boolean }) => void;
@@ -169,9 +169,17 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   handleStatusChanged: (data) => {
     set((state) => {
+      // CC-only status update (no from/to) — just update ccStatus in-place
+      if (!data.from || !data.to) {
+        const columns = updateTicketInColumns(state.columns, data.number, {
+          ...(data.ccStatus ? { ccStatus: data.ccStatus as Ticket["ccStatus"] } : {}),
+        });
+        return { columns, stats: recalcStats(columns) };
+      }
+      // Full status transition — move ticket between columns
       const { ticket, columns: withoutTicket } = findAndRemoveTicket(state.columns, data.number);
       if (!ticket) return state;
-      const movedTicket = { ...ticket, status: data.to as TicketStatus, ccStatus: data.ccStatus as Ticket["ccStatus"] };
+      const movedTicket = { ...ticket, status: data.to as TicketStatus, ccStatus: (data.ccStatus || ticket.ccStatus) as Ticket["ccStatus"] };
       const columns = withoutTicket.map((col) => {
         if (col.status === data.to) {
           return { ...col, tickets: [...col.tickets, movedTicket].sort((a, b) => a.priority - b.priority) };
