@@ -527,11 +527,6 @@ export function startLoginPTY(): { pid: number } {
     },
   );
 
-  // Send a helpful hint
-  setTimeout(() => {
-    writeToPTY(LOGIN_KEY, "echo '=== Claude Auth Shell ==='\necho 'Run: claude auth login'\necho 'Or:  claude auth status'\necho ''\n");
-  }, 300);
-
   return { pid: instance.pid };
 }
 
