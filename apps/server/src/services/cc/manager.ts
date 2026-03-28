@@ -52,8 +52,9 @@ function resetRestartAttempts(key: string): void {
  * If a session exists, we can use --continue to resume it.
  */
 function hasExistingSession(cwd: string): boolean {
-  // Claude CLI converts cwd "/foo/bar" → "-foo-bar" for the projects dir
-  const dashified = cwd.replace(/\//g, "-");
+  // Claude CLI converts cwd "/foo/bar.git" → "-foo-bar-git" for the projects dir
+  // All non-alphanumeric characters (except -) are replaced with -
+  const dashified = cwd.replace(/[^a-zA-Z0-9-]/g, "-");
   const sessionDir = path.join(os.homedir(), ".claude", "projects", dashified);
   try {
     if (!fs.existsSync(sessionDir)) return false;
