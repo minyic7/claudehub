@@ -685,7 +685,12 @@ async function doMerge(
     to: "merged",
   });
 
-  // Notify Kanban CC about the merge
+  // Update kanban worktree to include the merge, then notify Kanban CC
+  try {
+    await git.updateKanbanWorktree(project.owner, project.repo, project.baseBranch, project.githubToken);
+  } catch (err) {
+    console.warn("Failed to update kanban worktree after merge:", err);
+  }
   const { sendToKanbanCC, isKanbanCCRunning } = await import("../services/cc/manager.js");
   if (isKanbanCCRunning(projectId)) {
     sendToKanbanCC(
