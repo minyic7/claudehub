@@ -58,13 +58,17 @@ function ensureTrusted(cwd: string): void {
     }
     const projects = (data.projects ?? {}) as Record<string, Record<string, unknown>>;
     if (!projects[cwd]) projects[cwd] = {};
-    if (projects[cwd].hasTrustDialogAccepted) return; // already trusted
+    // Trust this workspace
     projects[cwd].hasTrustDialogAccepted = true;
     projects[cwd].projectOnboardingSeenCount = 1;
     data.projects = projects;
-    // Also ensure onboarding is complete
+    // Skip all onboarding dialogs (ink prompts freeze PTY input)
     data.hasCompletedOnboarding = true;
     if (!data.lastOnboardingVersion) data.lastOnboardingVersion = "2.1.85";
+    if (!data.numStartups) data.numStartups = 10;
+    data.effortCalloutDismissed = true;
+    data.effortCalloutV2Dismissed = true;
+    if (!data.lastReleaseNotesSeen) data.lastReleaseNotesSeen = "2.1.85";
     fs.writeFileSync(claudeJsonPath, JSON.stringify(data, null, 2));
     console.log(`Trusted workspace: ${cwd}`);
   } catch (err) {
