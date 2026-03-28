@@ -15,6 +15,7 @@ import { useBoardStore } from "../../stores/boardStore.js";
 import Column from "./Column.js";
 import Badge from "../ui/Badge.js";
 import { truncate } from "../../lib/utils.js";
+import { toast } from "sonner";
 
 interface KanbanBoardProps {
   columns: BoardColumnType[];
@@ -70,8 +71,8 @@ export default function KanbanBoard({
         // Cross-column drag: status change
         try {
           await moveTicket(projectId, ticket.number, targetStatus);
-        } catch {
-          // Reverted by store, TODO: toast
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to move ticket");
         }
       } else {
         // Same-column drag: priority reorder
@@ -79,8 +80,8 @@ export default function KanbanBoard({
         if (overTicket && overTicket.number !== ticket.number) {
           try {
             await reorderTicket(projectId, ticket.number, overTicket.priority);
-          } catch {
-            // Reverted by store
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to reorder ticket");
           }
         }
       }

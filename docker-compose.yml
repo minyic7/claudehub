@@ -29,7 +29,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       HOST: "0.0.0.0"
       PORT: "7700"
-    # TODO: add healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   web:
     image: ghcr.io/minyic7/claudehub-web:latest
@@ -37,8 +42,13 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - server
-    # TODO: add healthcheck
+      server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/claudehub/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
   redis-data:

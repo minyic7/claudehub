@@ -7,14 +7,37 @@ import type { Ticket } from "@claudehub/shared";
 
 export const webhooks = new Hono();
 
+// Simple in-memory deduplication for webhook deliveries (TTL-based)
+const recentDeliveries = new Map<string, number>();
+const DEDUP_TTL_MS = 300_000; // 5 minutes
+
+function isDuplicate(deliveryId: string): boolean {
+  // Prune expired entries periodically (every 100 checks)
+  if (recentDeliveries.size > 100) {
+    const now = Date.now();
+    for (const [id, ts] of recentDeliveries) {
+      if (now - ts > DEDUP_TTL_MS) recentDeliveries.delete(id);
+    }
+  }
+  if (recentDeliveries.has(deliveryId)) return true;
+  recentDeliveries.set(deliveryId, Date.now());
+  return false;
+}
+
 // POST /api/webhooks/github
 webhooks.post("/github", async (c) => {
   const event = c.req.header("X-GitHub-Event");
   const signature = c.req.header("X-Hub-Signature-256");
+  const deliveryId = c.req.header("X-GitHub-Delivery");
   const rawBody = await c.req.text();
 
   if (!event || !signature) {
     return c.json({ error: "Missing headers" }, 400);
+  }
+
+  // Deduplicate retried deliveries
+  if (deliveryId && isDuplicate(deliveryId)) {
+    return c.json({ received: true, deduplicated: true });
   }
 
   let payload: Record<string, unknown>;

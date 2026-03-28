@@ -2,6 +2,9 @@ import jwt from "jsonwebtoken";
 import type { Context, Next } from "hono";
 
 const JWT_SECRET = process.env.JWT_SECRET || "claudehub-dev-secret";
+if (!process.env.JWT_SECRET) {
+  console.warn("WARNING: JWT_SECRET not set, using insecure default. Set JWT_SECRET env var in production.");
+}
 const TOKEN_EXPIRY = "7d";
 
 // V1: hardcoded admin/admin

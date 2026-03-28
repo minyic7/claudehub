@@ -25,8 +25,15 @@ app.use("*", logger());
 app.use("*", cors());
 app.use("/api/*", authMiddleware);
 
-// Health check (before auth)
-app.get("/api/health", (c) => c.json({ status: "ok" }));
+// Health check (before auth) — verifies Redis connectivity
+app.get("/api/health", async (c) => {
+  try {
+    await redis.ping();
+    return c.json({ status: "ok" });
+  } catch {
+    return c.json({ status: "error", detail: "Redis unreachable" }, 503);
+  }
+});
 
 // Auth
 app.route("/api/auth", auth);

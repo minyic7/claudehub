@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
 import { getApiKey } from "../../lib/utils.js";
+import { toast } from "sonner";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
@@ -35,6 +36,17 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const draggingRef = useRef(false);
 
   const kanbanRunning = kanbanCCStatus === "running";
+
+  // Clean up drag state if component unmounts mid-drag
+  useEffect(() => {
+    return () => {
+      if (draggingRef.current) {
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        draggingRef.current = false;
+      }
+    };
+  }, []);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -72,7 +84,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     setCcLoading(true);
     try {
       await api.stopKanbanCC(projectId);
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to stop Kanban CC");
+    }
     setCcLoading(false);
   };
 
@@ -80,7 +94,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     setCcLoading(true);
     try {
       await api.startKanbanCC(projectId, getApiKey());
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start Kanban CC");
+    }
     setCcLoading(false);
   };
 
@@ -90,7 +106,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
       await api.stopKanbanCC(projectId);
       await new Promise((r) => setTimeout(r, 500));
       await api.startKanbanCC(projectId, getApiKey());
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to restart Kanban CC");
+    }
     setCcLoading(false);
   };
 

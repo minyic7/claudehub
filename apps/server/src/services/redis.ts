@@ -443,6 +443,8 @@ function parseTicket(data: Record<string, string>): Ticket {
       : undefined,
     taskBrief: data.taskBrief || undefined,
     returnReason: (data.returnReason as Ticket["returnReason"]) || undefined,
+    mergeStep: data.mergeStep || undefined,
+    ciPassed: data.ciPassed !== undefined ? data.ciPassed === "true" : undefined,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };

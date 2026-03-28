@@ -43,4 +43,5 @@ export interface UpdateTicketInput {
   priority?: number;
   dependencies?: number[];
   taskBrief?: string;
+  returnReason?: ReturnReason;
 }

@@ -18,9 +18,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
   if (res.status === 401) {
+    // Only redirect if not already on login page (prevent redirect loops during in-flight requests)
+    const onLoginPage = window.location.pathname.endsWith("/login");
     localStorage.removeItem("token");
-    window.location.href = `${import.meta.env.BASE_URL}login`;
-    throw new Error("Unauthorized");
+    if (!onLoginPage) {
+      window.location.href = `${import.meta.env.BASE_URL}login`;
+    }
+    throw new Error("Session expired. Please log in again.");
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Ticket, TicketStatus } from "@claudehub/shared";
 import { api } from "../../api/client.js";
+import { toast } from "sonner";
 import Modal from "../ui/Modal.js";
 import Badge from "../ui/Badge.js";
 import Button from "../ui/Button.js";
@@ -71,8 +72,8 @@ export default function TicketDetailModal({
           onClose();
           break;
       }
-    } catch {
-      // TODO: toast
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Action "${action}" failed`);
     } finally {
       setLoading("");
     }

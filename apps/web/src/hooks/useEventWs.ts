@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { WSEvent } from "@claudehub/shared";
 import { buildWsUrl } from "./useWsUrl.js";
 import { useBoardStore } from "../stores/boardStore.js";
+import { toast } from "sonner";
 
 const MAX_BACKOFF = 30_000;
 
@@ -19,7 +20,11 @@ export function useEventWs(projectId: string | undefined) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        backoffRef.current = 1000; // reset on success
+        // Re-fetch board on reconnect to catch events missed while disconnected
+        if (backoffRef.current > 1000) {
+          useBoardStore.getState().fetchBoard(projectId!);
+        }
+        backoffRef.current = 1000;
       };
 
       ws.onmessage = (e) => {
@@ -27,39 +32,50 @@ export function useEventWs(projectId: string | undefined) {
           const event: WSEvent = JSON.parse(e.data);
           const store = useBoardStore.getState();
 
+          const d = event.data;
           switch (event.type) {
             case "ticket:created":
-              store.handleTicketCreated(event.data as never);
+              store.handleTicketCreated(d.ticket as Parameters<typeof store.handleTicketCreated>[0]);
               break;
             case "ticket:updated":
-              store.handleTicketUpdated(event.data as never);
+              store.handleTicketUpdated(d as Parameters<typeof store.handleTicketUpdated>[0]);
               break;
             case "ticket:deleted":
-              store.handleTicketDeleted(event.data as never);
+              store.handleTicketDeleted(d as Parameters<typeof store.handleTicketDeleted>[0]);
               break;
             case "ticket:status_changed":
-              store.handleStatusChanged(event.data as never);
+              store.handleStatusChanged(d as Parameters<typeof store.handleStatusChanged>[0]);
               break;
             case "merge:progress":
-              store.handleMergeProgress(event.data as never);
+              store.handleMergeProgress(d as Parameters<typeof store.handleMergeProgress>[0]);
+              if (d.status === "merged") toast.success(`Ticket #${d.number} merged`);
+              else if (d.status === "failed") toast.error(`Merge failed: ${d.error || "unknown error"}`);
               break;
             case "rebase:started":
+              toast.info(`Rebase started for ticket #${d.number}`);
+              break;
             case "rebase:completed":
+              toast.success(`Rebase completed for ticket #${d.number}`);
+              break;
             case "rebase:conflict":
-              store.handleRebaseEvent(event.data as never);
+              toast.error(`Rebase conflict on ticket #${d.number}`);
               break;
             case "ci:completed":
-              store.handleCICompleted(event.data as never);
+              store.handleCICompleted(d as Parameters<typeof store.handleCICompleted>[0]);
+              if (d.passed) toast.success(`CI passed for ticket #${d.number}`);
+              else toast.error(`CI failed for ticket #${d.number}`);
               break;
             case "cd:completed":
+              toast.success("CD completed");
+              break;
             case "cd:failed":
-              store.handleCDEvent(event.data as never);
+              toast.error("CD failed — urgent fix ticket may be auto-created");
               break;
             case "kanban_cc:status_changed":
-              store.handleKanbanCCStatus(event.data as never);
+              store.handleKanbanCCStatus(d as Parameters<typeof store.handleKanbanCCStatus>[0]);
               break;
             case "operator:changed":
-              store.handleOperatorChanged(event.data as never);
+              store.handleOperatorChanged(d as Parameters<typeof store.handleOperatorChanged>[0]);
               break;
           }
         } catch {
