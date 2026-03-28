@@ -110,12 +110,12 @@ export function useTerminalWs({
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       const json = JSON.stringify({ cols, rows });
-      const payload = new Uint8Array(1 + json.length);
+      const encoder = new TextEncoder();
+      const jsonBytes = encoder.encode(json);
+      const payload = new Uint8Array(1 + jsonBytes.length);
       payload[0] = 0x01;
-      for (let i = 0; i < json.length; i++) {
-        payload[i + 1] = json.charCodeAt(i);
-      }
-      ws.send(payload.buffer);
+      payload.set(jsonBytes, 1);
+      ws.send(payload);
     }
   }, []);
 

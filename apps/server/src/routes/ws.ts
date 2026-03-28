@@ -12,15 +12,27 @@ import { verifyToken } from "../lib/auth.js";
 
 const RESIZE_PREFIX = 0x01;
 
+/** Convert any binary data type to Uint8Array */
+function toUint8Array(data: unknown): Uint8Array | null {
+  if (data instanceof Uint8Array) return data;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  return null;
+}
+
 /** Try to parse a resize message (0x01 + JSON {cols, rows}). Returns null if not a resize. */
-function parseResize(data: ArrayBuffer | string): { cols: number; rows: number } | null {
+function parseResize(data: unknown): { cols: number; rows: number } | null {
   if (typeof data === "string") return null;
-  const bytes = new Uint8Array(data);
-  if (bytes.length < 2 || bytes[0] !== RESIZE_PREFIX) return null;
+  const bytes = toUint8Array(data);
+  if (!bytes || bytes.length < 2 || bytes[0] !== RESIZE_PREFIX) return null;
   try {
     const json = new TextDecoder().decode(bytes.slice(1));
-    const { cols, rows } = JSON.parse(json);
+    const parsed = JSON.parse(json);
+    const { cols, rows } = parsed;
     if (typeof cols === "number" && typeof rows === "number" && cols > 0 && rows > 0) {
+      console.log(`[ws] resize: ${cols}x${rows}`);
       return { cols, rows };
     }
   } catch { /* ignore */ }
@@ -83,14 +95,14 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
           }
         },
         onMessage(event, ws) {
-          if (!isOperator(projectId, connectionId)) return;
-
           const key = `kanban:${projectId}`;
-          const resize = parseResize(event.data as ArrayBuffer | string);
+          // Resize bypasses operator check — it's a display concern
+          const resize = parseResize(event.data);
           if (resize) {
             resizePTY(key, resize.cols, resize.rows);
             return;
           }
+          if (!isOperator(projectId, connectionId)) return;
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"
@@ -139,14 +151,14 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
           }
         },
         onMessage(event, ws) {
-          if (!isOperator(projectId, connectionId)) return;
-
           const key = `ticket:${projectId}:${number}`;
-          const resize = parseResize(event.data as ArrayBuffer | string);
+          // Resize bypasses operator check — it's a display concern
+          const resize = parseResize(event.data);
           if (resize) {
             resizePTY(key, resize.cols, resize.rows);
             return;
           }
+          if (!isOperator(projectId, connectionId)) return;
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"
@@ -193,7 +205,7 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
         },
         onMessage(event, ws) {
           const key = "login";
-          const resize = parseResize(event.data as ArrayBuffer | string);
+          const resize = parseResize(event.data);
           if (resize) {
             resizePTY(key, resize.cols, resize.rows);
             return;

@@ -70,8 +70,13 @@ export default function TerminalView({
     sendResize(terminal.cols, terminal.rows);
 
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
-      sendResize(terminal.cols, terminal.rows);
+      // Use rAF to ensure layout is settled before measuring
+      requestAnimationFrame(() => {
+        try {
+          fitAddon.fit();
+        } catch { /* terminal may be disposed */ }
+        sendResize(terminal.cols, terminal.rows);
+      });
     });
     resizeObserver.observe(containerRef.current);
 
