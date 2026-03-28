@@ -14,6 +14,8 @@ import {
   cleanupPluginDir,
 } from "../plugin/assembler.js";
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 
 const CLAUDE_BIN = "claude";
 const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
@@ -41,6 +43,33 @@ function getRestartDelay(key: string): number | null {
 
 function resetRestartAttempts(key: string): void {
   restartAttempts.delete(key);
+}
+
+/**
+ * Pre-trust a workspace directory in ~/.claude.json so Claude CLI
+ * doesn't show the interactive trust dialog (which freezes PTY).
+ */
+function ensureTrusted(cwd: string): void {
+  const claudeJsonPath = path.join(os.homedir(), ".claude.json");
+  try {
+    let data: Record<string, unknown> = {};
+    if (fs.existsSync(claudeJsonPath)) {
+      data = JSON.parse(fs.readFileSync(claudeJsonPath, "utf-8"));
+    }
+    const projects = (data.projects ?? {}) as Record<string, Record<string, unknown>>;
+    if (!projects[cwd]) projects[cwd] = {};
+    if (projects[cwd].hasTrustDialogAccepted) return; // already trusted
+    projects[cwd].hasTrustDialogAccepted = true;
+    projects[cwd].projectOnboardingSeenCount = 1;
+    data.projects = projects;
+    // Also ensure onboarding is complete
+    data.hasCompletedOnboarding = true;
+    if (!data.lastOnboardingVersion) data.lastOnboardingVersion = "2.1.85";
+    fs.writeFileSync(claudeJsonPath, JSON.stringify(data, null, 2));
+    console.log(`Trusted workspace: ${cwd}`);
+  } catch (err) {
+    console.warn(`Failed to pre-trust workspace ${cwd}:`, err);
+  }
 }
 
 // Serialize scheduleNext() calls to prevent double-starts
@@ -150,6 +179,8 @@ export async function startKanbanCC(
     BASE_BRANCH: project?.baseBranch || "main",
     WORKTREE_PATH: worktreePath,
   };
+
+  ensureTrusted(worktreePath);
 
   const instance = spawnPTY(
     key,
@@ -312,6 +343,8 @@ async function doStartTicketCC(
     BASE_BRANCH: project?.baseBranch || "main",
     WORKTREE_PATH: ticket.worktreePath,
   };
+
+  ensureTrusted(ticket.worktreePath);
 
   const instance = spawnPTY(
     key,
