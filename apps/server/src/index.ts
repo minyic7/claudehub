@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { createNodeWebSocket } from "@hono/node-ws";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { authMiddleware } from "./lib/auth.js";
@@ -11,12 +12,15 @@ import { kanbanCC } from "./routes/kanbanCC.js";
 import { ticketCC } from "./routes/ticketCC.js";
 import { settings } from "./routes/settings.js";
 import { webhooks } from "./routes/webhooks.js";
-import { wsRoutes, injectWebSocket } from "./routes/ws.js";
+import { createWsRoutes } from "./routes/ws.js";
 import { claudeLogin } from "./routes/claudeLogin.js";
 import { recoverOnStartup, shutdownAll } from "./services/cc/manager.js";
 import { redis } from "./services/redis.js";
 
 const app = new Hono();
+
+// Create WebSocket support bound to the main app
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
 app.use("*", logger());
 app.use("*", cors());
@@ -42,8 +46,8 @@ projectScoped.route("/:projectId/board", board);
 projectScoped.route("/:projectId/kanban-cc", kanbanCC);
 app.route("/api/projects", projectScoped);
 
-// WebSocket routes
-app.route("/api/ws", wsRoutes);
+// WebSocket routes — pass upgradeWebSocket from main app
+app.route("/api/ws", createWsRoutes(upgradeWebSocket));
 
 const port = Number(process.env.PORT) || 7700;
 const host = process.env.HOST || "0.0.0.0";
