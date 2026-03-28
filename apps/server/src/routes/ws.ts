@@ -7,6 +7,7 @@ import {
   addTerminalClient,
   removeTerminalClient,
   isOperator,
+  getOperatorConnectionId,
 } from "../lib/broadcast.js";
 import { verifyToken } from "../lib/auth.js";
 
@@ -101,13 +102,19 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
             resizePTY(key, resize.cols, resize.rows);
             return;
           }
-          if (!isOperator(projectId, connectionId)) return;
+          if (!isOperator(projectId, connectionId)) {
+            console.log(`[ws:kanban] INPUT BLOCKED (not operator) connId=${connectionId} operator=${getOperatorConnectionId(projectId)}`);
+            return;
+          }
           const pty = getPTY(key);
           if (pty) {
             const data = typeof event.data === "string"
               ? event.data
               : new TextDecoder().decode(event.data as ArrayBuffer);
+            console.log(`[ws:kanban] INPUT to PTY: ${JSON.stringify(data).slice(0, 100)} (${data.length} bytes)`);
             pty.pty.write(data);
+          } else {
+            console.log(`[ws:kanban] INPUT but no PTY for ${key}`);
           }
         },
         onClose(_event, ws) {
