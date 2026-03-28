@@ -328,7 +328,7 @@ export async function stopKanbanCC(projectId: string): Promise<void> {
 }
 
 export function sendToKanbanCC(projectId: string, message: string): boolean {
-  return writeToPTY(`kanban:${projectId}`, message + "\n");
+  return writeToPTY(`kanban:${projectId}`, message + "\r");
 }
 
 export function isKanbanCCRunning(projectId: string): boolean {
@@ -504,10 +504,11 @@ async function doStartTicketCC(
 
   // For fresh sessions (no --continue/--resume), Claude CLI waits for user input.
   // Send the task brief as initial prompt so Ticket CC starts working automatically.
+  // PTY requires \r (carriage return) to submit, not \n (line feed).
   if (!willResume) {
     setTimeout(() => {
       const brief = ticket.taskBrief || `Work on ticket #${ticket.number}: ${ticket.title}\n\n${ticket.description}`;
-      writeToPTY(key, brief + "\n");
+      writeToPTY(key, brief + "\r");
     }, 2000); // Wait for CLI to initialize
   }
 
@@ -534,7 +535,7 @@ export function sendToTicketCC(
   number: number,
   message: string,
 ): boolean {
-  return writeToPTY(`ticket:${projectId}:${number}`, message + "\n");
+  return writeToPTY(`ticket:${projectId}:${number}`, message + "\r");
 }
 
 export function isTicketCCRunning(
