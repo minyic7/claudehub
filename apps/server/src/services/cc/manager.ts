@@ -46,23 +46,57 @@ function resetRestartAttempts(key: string): void {
   restartAttempts.delete(key);
 }
 
-/**
- * Check if a Claude CLI session already exists for a workspace directory.
- * Sessions are stored in ~/.claude/projects/<dashified-cwd>/.
- * If a session exists, we can use --continue to resume it.
- */
-function hasExistingSession(cwd: string): boolean {
-  // Claude CLI converts cwd "/foo/bar.git" → "-foo-bar-git" for the projects dir
-  // All non-alphanumeric characters (except -) are replaced with -
-  const dashified = cwd.replace(/[^a-zA-Z0-9-]/g, "-");
-  const sessionDir = path.join(os.homedir(), ".claude", "projects", dashified);
+/** Convert a workspace cwd to the dashified directory name used by Claude CLI */
+function dashifyCwd(cwd: string): string {
+  return cwd.replace(/[^a-zA-Z0-9-]/g, "-");
+}
+
+/** Get the Claude CLI session directory for a workspace */
+function getSessionDir(cwd: string): string {
+  return path.join(os.homedir(), ".claude", "projects", dashifyCwd(cwd));
+}
+
+export interface CCSession {
+  id: string;
+  lastActiveAt: string;
+}
+
+/** List all sessions for a workspace, sorted by last active (newest first) */
+export function listSessions(cwd: string): CCSession[] {
+  const sessionDir = getSessionDir(cwd);
   try {
-    if (!fs.existsSync(sessionDir)) return false;
+    if (!fs.existsSync(sessionDir)) return [];
     const files = fs.readdirSync(sessionDir);
-    return files.some((f) => f.endsWith(".jsonl"));
+    return files
+      .filter((f) => f.endsWith(".jsonl"))
+      .map((f) => {
+        const id = f.replace(".jsonl", "");
+        const stat = fs.statSync(path.join(sessionDir, f));
+        return { id, lastActiveAt: stat.mtime.toISOString() };
+      })
+      .sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
+  } catch {
+    return [];
+  }
+}
+
+/** Delete a specific session */
+export function deleteSession(cwd: string, sessionId: string): boolean {
+  const sessionDir = getSessionDir(cwd);
+  try {
+    const jsonlPath = path.join(sessionDir, `${sessionId}.jsonl`);
+    if (fs.existsSync(jsonlPath)) fs.unlinkSync(jsonlPath);
+    // Also remove companion directory if it exists
+    const dirPath = path.join(sessionDir, sessionId);
+    if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true });
+    return true;
   } catch {
     return false;
   }
+}
+
+function hasExistingSession(cwd: string): boolean {
+  return listSessions(cwd).length > 0;
 }
 
 /**
@@ -163,7 +197,7 @@ export async function startKanbanCC(
   worktreePath: string,
   systemPrompt: string,
   env?: Record<string, string>,
-  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
+  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean; sessionId?: string },
 ): Promise<{ pid: number }> {
   // Single-project limit: stop previous project's CCs if different
   await ensureSingleProject(projectId);
@@ -190,8 +224,10 @@ export async function startKanbanCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  // Resume existing session if available (new workspaces have no session to continue)
-  if (options?.resume || hasExistingSession(worktreePath)) {
+  // Session resume strategy: explicit sessionId > auto-detect > fresh start
+  if (options?.sessionId) {
+    args.push("--resume", options.sessionId);
+  } else if (options?.resume || hasExistingSession(worktreePath)) {
     args.push("--continue");
   }
   if (pluginDir) args.push("--plugin-dir", pluginDir);
@@ -333,7 +369,7 @@ async function doStartTicketCC(
   ticket: Ticket,
   systemPrompt: string,
   env?: Record<string, string>,
-  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
+  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean; sessionId?: string },
 ): Promise<{ pid: number; queued: boolean }> {
   const key = `ticket:${projectId}:${ticket.number}`;
   manuallyStopped.delete(key);
@@ -357,8 +393,10 @@ async function doStartTicketCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  // Resume existing session if available (new workspaces have no session to continue)
-  if (options?.resume || hasExistingSession(ticket.worktreePath)) {
+  // Session resume strategy: explicit sessionId > auto-detect > fresh start
+  if (options?.sessionId) {
+    args.push("--resume", options.sessionId);
+  } else if (options?.resume || hasExistingSession(ticket.worktreePath)) {
     args.push("--continue");
   }
   if (pluginDir) args.push("--plugin-dir", pluginDir);

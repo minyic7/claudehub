@@ -13,3 +13,8 @@ export interface TicketCCInfo {
   uptime?: number;
   lastActiveAt?: string;
 }
+
+export interface CCSession {
+  id: string;
+  lastActiveAt: string;
+}

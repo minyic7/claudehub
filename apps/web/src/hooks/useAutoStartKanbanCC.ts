@@ -17,7 +17,7 @@ export function useAutoStartKanbanCC(projectId: string | undefined) {
           const apiKey = getApiKey();
           if (!isAdmin() && !apiKey) return;
           try {
-            await api.startKanbanCC(projectId!, apiKey);
+            await api.startKanbanCC(projectId!, { apiKey });
             useBoardStore.setState({ kanbanCCStatus: "running" });
           } catch {
             // 409 = already running, silently ignore

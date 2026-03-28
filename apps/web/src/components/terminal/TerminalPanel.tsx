@@ -4,6 +4,7 @@ import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
 import { getApiKey } from "../../lib/utils.js";
 import { toast } from "sonner";
+import type { CCSession } from "@claudehub/shared";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
@@ -23,6 +24,16 @@ function loadWidth(): number {
   return DEFAULT_WIDTH;
 }
 
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
+  return d.toLocaleDateString();
+}
+
 interface TerminalPanelProps {
   projectId: string;
 }
@@ -36,6 +47,22 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const draggingRef = useRef(false);
 
   const kanbanRunning = kanbanCCStatus === "running";
+
+  const [ccLoading, setCcLoading] = useState(false);
+  const [sessions, setSessions] = useState<CCSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  // Fetch sessions when not running
+  useEffect(() => {
+    if (kanbanRunning) return;
+    let cancelled = false;
+    setSessionsLoading(true);
+    api.getKanbanCCSessions(projectId)
+      .then((res) => { if (!cancelled) setSessions(res.sessions); })
+      .catch(() => { if (!cancelled) setSessions([]); })
+      .finally(() => { if (!cancelled) setSessionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [projectId, kanbanRunning]);
 
   // Clean up drag state if component unmounts mid-drag
   useEffect(() => {
@@ -78,8 +105,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     document.addEventListener("mouseup", onUp);
   }, [width]);
 
-  const [ccLoading, setCcLoading] = useState(false);
-
   const handleStopKanbanCC = async () => {
     setCcLoading(true);
     try {
@@ -90,26 +115,23 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     setCcLoading(false);
   };
 
-  const handleStartKanbanCC = async () => {
+  const handleStartKanbanCC = async (sessionId?: string) => {
     setCcLoading(true);
     try {
-      await api.startKanbanCC(projectId, getApiKey());
+      await api.startKanbanCC(projectId, { apiKey: getApiKey(), sessionId });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to start Kanban CC");
     }
     setCcLoading(false);
   };
 
-  const handleRestartKanbanCC = async () => {
-    setCcLoading(true);
+  const handleDeleteSession = async (sessionId: string) => {
     try {
-      await api.stopKanbanCC(projectId);
-      await new Promise((r) => setTimeout(r, 500));
-      await api.startKanbanCC(projectId, getApiKey());
+      await api.deleteKanbanCCSession(projectId, sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to restart Kanban CC");
+      toast.error(err instanceof Error ? err.message : "Failed to delete session");
     }
-    setCcLoading(false);
   };
 
   if (panelCollapsed) {
@@ -175,13 +197,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex items-center justify-end gap-2 px-3 py-1 border-b border-border-default">
                 <button
-                  onClick={handleRestartKanbanCC}
-                  disabled={ccLoading}
-                  className="font-pixel text-[7px] text-text-muted hover:text-accent cursor-pointer disabled:opacity-50"
-                >
-                  RESTART
-                </button>
-                <button
                   onClick={handleStopKanbanCC}
                   disabled={ccLoading}
                   className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer disabled:opacity-50"
@@ -194,20 +209,53 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4">
-              <div className="w-full h-[120px]">
+            <div className="flex-1 flex flex-col items-center gap-3 pt-4 px-3 overflow-y-auto">
+              <div className="w-full h-[100px] shrink-0">
                 <CatScene />
               </div>
               <span className="font-pixel text-[8px] text-text-muted">
                 KANBAN CC {kanbanCCStatus.toUpperCase()}
               </span>
+
+              {/* New session button */}
               <button
-                onClick={handleStartKanbanCC}
+                onClick={() => handleStartKanbanCC()}
                 disabled={ccLoading}
-                className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
+                className="w-full font-pixel text-[7px] text-accent hover:text-accent/80 border border-accent/30 hover:border-accent/60 rounded px-3 py-2 cursor-pointer disabled:opacity-50 transition-colors"
               >
-                {ccLoading ? "STARTING..." : "START KANBAN CC"}
+                {ccLoading ? "STARTING..." : "+ NEW SESSION"}
               </button>
+
+              {/* Session list */}
+              {sessionsLoading ? (
+                <span className="font-pixel text-[7px] text-text-muted">Loading sessions...</span>
+              ) : sessions.length > 0 ? (
+                <div className="w-full flex flex-col gap-1">
+                  <span className="font-pixel text-[7px] text-text-muted mb-1">RESUME SESSION</span>
+                  {sessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="group flex items-center gap-1 w-full border border-border-default rounded px-2 py-1.5 hover:border-accent/40 transition-colors"
+                    >
+                      <button
+                        onClick={() => handleStartKanbanCC(s.id)}
+                        disabled={ccLoading}
+                        className="flex-1 text-left font-pixel text-[7px] text-text-secondary hover:text-accent cursor-pointer disabled:opacity-50 truncate"
+                        title={s.id}
+                      >
+                        {s.id.slice(0, 8)}... - {formatTime(s.lastActiveAt)}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSession(s.id)}
+                        className="font-pixel text-[7px] text-text-muted hover:text-status-error cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        title="Delete session"
+                      >
+                        X
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
         </div>

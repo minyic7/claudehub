@@ -7,6 +7,12 @@ import { getPTY } from "../lib/pty.js";
 
 export const kanbanCC = new Hono<{ Variables: { username: string } }>();
 
+/** Get the kanban worktree path for a project (without creating it) */
+function kanbanWorktreePath(owner: string, repo: string): string {
+  const reposDir = process.env.REPOS_DIR || "/repos";
+  return `${reposDir}/${owner}/${repo}.git/worktrees-data/kanban`;
+}
+
 // POST /api/projects/:projectId/kanban-cc
 kanbanCC.post("/", async (c) => {
   const projectId = c.req.param("projectId")!;
@@ -18,7 +24,7 @@ kanbanCC.post("/", async (c) => {
     return c.json({ error: "Kanban CC already running" }, 409);
   }
 
-  // Accept apiKey from body (frontend localStorage) and persist to Redis
+  // Accept apiKey and sessionId from body
   const body = await c.req.json().catch(() => ({}));
   if (body.apiKey) {
     await db.updateSettings({ anthropicApiKey: body.apiKey });
@@ -52,7 +58,10 @@ kanbanCC.post("/", async (c) => {
   if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
 
   try {
-    const { pid } = await ccManager.startKanbanCC(projectId, worktreePath, systemPrompt, env);
+    const { pid } = await ccManager.startKanbanCC(
+      projectId, worktreePath, systemPrompt, env,
+      body.sessionId ? { sessionId: body.sessionId } : undefined,
+    );
     return c.json({ status: "running", pid }, 201);
   } catch (err) {
     return c.json(
@@ -60,6 +69,31 @@ kanbanCC.post("/", async (c) => {
       500,
     );
   }
+});
+
+// GET /api/projects/:projectId/kanban-cc/sessions
+kanbanCC.get("/sessions", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const project = await db.getProject(projectId);
+  if (!project) return c.json({ error: "Project not found" }, 404);
+
+  const sessions = ccManager.listSessions(kanbanWorktreePath(project.owner, project.repo));
+  return c.json({ sessions });
+});
+
+// DELETE /api/projects/:projectId/kanban-cc/sessions/:sessionId
+kanbanCC.delete("/sessions/:sessionId", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const sessionId = c.req.param("sessionId")!;
+  const project = await db.getProject(projectId);
+  if (!project) return c.json({ error: "Project not found" }, 404);
+
+  const deleted = ccManager.deleteSession(
+    kanbanWorktreePath(project.owner, project.repo), sessionId,
+  );
+  return deleted
+    ? c.json({ deleted: true })
+    : c.json({ error: "Session not found" }, 404);
 });
 
 // GET /api/projects/:projectId/kanban-cc

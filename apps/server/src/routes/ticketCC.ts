@@ -31,7 +31,7 @@ ticketCC.post("/", async (c) => {
 
   const username = c.get("username") as string;
 
-  // Accept apiKey from body (frontend localStorage) and persist to Redis
+  // Accept apiKey and sessionId from body
   const body = await c.req.json().catch(() => ({}));
   if (body.apiKey) {
     await db.updateSettings({ anthropicApiKey: body.apiKey });
@@ -58,6 +58,33 @@ ticketCC.post("/", async (c) => {
       500,
     );
   }
+});
+
+// GET /api/projects/:projectId/tickets/:number/cc/sessions
+ticketCC.get("/sessions", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const number = Number(c.req.param("number")!);
+
+  const ticket = await db.getTicket(projectId, number);
+  if (!ticket) return c.json({ error: "Ticket not found" }, 404);
+
+  const sessions = ccManager.listSessions(ticket.worktreePath);
+  return c.json({ sessions });
+});
+
+// DELETE /api/projects/:projectId/tickets/:number/cc/sessions/:sessionId
+ticketCC.delete("/sessions/:sessionId", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const number = Number(c.req.param("number")!);
+  const sessionId = c.req.param("sessionId")!;
+
+  const ticket = await db.getTicket(projectId, number);
+  if (!ticket) return c.json({ error: "Ticket not found" }, 404);
+
+  const deleted = ccManager.deleteSession(ticket.worktreePath, sessionId);
+  return deleted
+    ? c.json({ deleted: true })
+    : c.json({ error: "Session not found" }, 404);
 });
 
 // GET /api/projects/:projectId/tickets/:number/cc

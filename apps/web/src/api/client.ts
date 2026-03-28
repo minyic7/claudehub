@@ -2,7 +2,7 @@ import type {
   Project, CreateProjectInput, UpdateProjectInput,
   Ticket, CreateTicketInput, UpdateTicketInput,
   BoardView, Settings, SettingsResponse, UpdateSettingsInput,
-  KanbanCCInfo, TicketCCInfo,
+  KanbanCCInfo, TicketCCInfo, CCSession,
 } from "@claudehub/shared";
 
 const BASE = import.meta.env.VITE_API_BASE || "/claudehub/api";
@@ -68,10 +68,13 @@ export const api = {
     request<void>(`/projects/${projectId}/tickets/${number}/merge`, { method: "DELETE" }),
 
   // Kanban CC
-  startKanbanCC: (projectId: string, apiKey?: string | null) =>
+  startKanbanCC: (projectId: string, opts?: { apiKey?: string | null; sessionId?: string }) =>
     request<void>(`/projects/${projectId}/kanban-cc`, {
       method: "POST",
-      body: JSON.stringify(apiKey ? { apiKey } : {}),
+      body: JSON.stringify({
+        ...(opts?.apiKey ? { apiKey: opts.apiKey } : {}),
+        ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+      }),
     }),
   getKanbanCC: (projectId: string) =>
     request<KanbanCCInfo>(`/projects/${projectId}/kanban-cc`),
@@ -79,12 +82,19 @@ export const api = {
     request<void>(`/projects/${projectId}/kanban-cc`, { method: "DELETE" }),
   sendKanbanCCMessage: (projectId: string, content: string) =>
     request<void>(`/projects/${projectId}/kanban-cc/messages`, { method: "POST", body: JSON.stringify({ content }) }),
+  getKanbanCCSessions: (projectId: string) =>
+    request<{ sessions: CCSession[] }>(`/projects/${projectId}/kanban-cc/sessions`),
+  deleteKanbanCCSession: (projectId: string, sessionId: string) =>
+    request<void>(`/projects/${projectId}/kanban-cc/sessions/${sessionId}`, { method: "DELETE" }),
 
   // Ticket CC
-  startTicketCC: (projectId: string, number: number, apiKey?: string | null) =>
+  startTicketCC: (projectId: string, number: number, opts?: { apiKey?: string | null; sessionId?: string }) =>
     request<void>(`/projects/${projectId}/tickets/${number}/cc`, {
       method: "POST",
-      body: JSON.stringify(apiKey ? { apiKey } : {}),
+      body: JSON.stringify({
+        ...(opts?.apiKey ? { apiKey: opts.apiKey } : {}),
+        ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+      }),
     }),
   getTicketCC: (projectId: string, number: number) =>
     request<TicketCCInfo>(`/projects/${projectId}/tickets/${number}/cc`),
@@ -92,6 +102,10 @@ export const api = {
     request<void>(`/projects/${projectId}/tickets/${number}/cc`, { method: "DELETE" }),
   sendTicketCCMessage: (projectId: string, number: number, content: string) =>
     request<void>(`/projects/${projectId}/tickets/${number}/cc/messages`, { method: "POST", body: JSON.stringify({ content }) }),
+  getTicketCCSessions: (projectId: string, number: number) =>
+    request<{ sessions: CCSession[] }>(`/projects/${projectId}/tickets/${number}/cc/sessions`),
+  deleteTicketCCSession: (projectId: string, number: number, sessionId: string) =>
+    request<void>(`/projects/${projectId}/tickets/${number}/cc/sessions/${sessionId}`, { method: "DELETE" }),
 
   // Settings
   getSettings: () => request<SettingsResponse>("/settings"),
