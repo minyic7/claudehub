@@ -32,7 +32,6 @@ function parseResize(data: unknown): { cols: number; rows: number } | null {
     const parsed = JSON.parse(json);
     const { cols, rows } = parsed;
     if (typeof cols === "number" && typeof rows === "number" && cols > 0 && rows > 0) {
-      console.log(`[ws] resize: ${cols}x${rows}`);
       return { cols, rows };
     }
   } catch { /* ignore */ }
@@ -205,20 +204,16 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
         },
         onMessage(event, ws) {
           const key = "login";
-          // Debug: log incoming message type
-          const d = event.data;
-          const isStr = typeof d === "string";
-          console.log(`[ws:login] msg type=${isStr ? "string" : d?.constructor?.name} len=${isStr ? d.length : (d as ArrayBuffer)?.byteLength}`);
-          const resize = parseResize(d);
+          const resize = parseResize(event.data);
           if (resize) {
             resizePTY(key, resize.cols, resize.rows);
             return;
           }
           const pty = getPTY(key);
           if (pty) {
-            const data = isStr
-              ? d
-              : new TextDecoder().decode(d as ArrayBuffer);
+            const data = typeof event.data === "string"
+              ? event.data
+              : new TextDecoder().decode(event.data as ArrayBuffer);
             pty.pty.write(data);
           }
         },

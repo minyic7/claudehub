@@ -120,11 +120,18 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     setCcLoading(false);
   };
 
+  const handleStartKanbanCC = async () => {
+    setCcLoading(true);
+    try {
+      await api.startKanbanCC(projectId, getApiKey());
+    } catch { /* ignore */ }
+    setCcLoading(false);
+  };
+
   const handleRestartKanbanCC = async () => {
     setCcLoading(true);
     try {
       await api.stopKanbanCC(projectId);
-      // Small delay to let process exit
       await new Promise((r) => setTimeout(r, 500));
       await api.startKanbanCC(projectId, getApiKey());
     } catch { /* ignore */ }
@@ -242,13 +249,22 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               <span className="font-pixel text-[8px] text-text-muted">
                 KANBAN CC {kanbanCCStatus.toUpperCase()}
               </span>
-              <button
-                onClick={handleStartLogin}
-                disabled={loginLoading}
-                className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
-              >
-                {loginLoading ? "STARTING..." : "OPEN CLAUDE LOGIN TERMINAL"}
-              </button>
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={handleStartKanbanCC}
+                  disabled={ccLoading}
+                  className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
+                >
+                  {ccLoading ? "STARTING..." : "START KANBAN CC"}
+                </button>
+                <button
+                  onClick={handleStartLogin}
+                  disabled={loginLoading}
+                  className="font-pixel text-[7px] text-text-muted hover:text-text-secondary cursor-pointer disabled:opacity-50"
+                >
+                  {loginLoading ? "STARTING..." : "CLAUDE LOGIN"}
+                </button>
+              </div>
             </div>
           )}
         </div>

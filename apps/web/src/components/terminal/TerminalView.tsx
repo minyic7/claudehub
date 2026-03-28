@@ -95,18 +95,11 @@ export default function TerminalView({
     if (panelWidth == null) return;
     const fitAddon = fitAddonRef.current;
     const terminal = terminalRef.current;
-    if (!fitAddon || !terminal) {
-      console.warn("[terminal] panelWidth changed but no fitAddon/terminal");
-      return;
-    }
-    // rAF so the DOM has applied the new width before we measure
+    if (!fitAddon || !terminal) return;
     const id = requestAnimationFrame(() => {
-      const oldCols = terminal.cols;
-      const oldRows = terminal.rows;
       try {
         fitAddon.fit();
       } catch { return; }
-      console.log(`[terminal] fit: ${oldCols}x${oldRows} → ${terminal.cols}x${terminal.rows} (panelWidth=${panelWidth})`);
       sendResize(terminal.cols, terminal.rows);
     });
     return () => cancelAnimationFrame(id);
