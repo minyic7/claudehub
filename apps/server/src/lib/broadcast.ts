@@ -34,15 +34,18 @@ export function broadcastEvent(
   };
   const message = JSON.stringify(event);
 
+  let sent = 0;
   for (const client of eventClients) {
     if (!client.projectId || client.projectId === projectId) {
       try {
         client.ws.send(message);
+        sent++;
       } catch {
         eventClients.delete(client);
       }
     }
   }
+  console.log(`[broadcast] ${type} → ${sent}/${eventClients.size} clients (project=${projectId})`);
 }
 
 // ── Terminal WebSocket connections ──
