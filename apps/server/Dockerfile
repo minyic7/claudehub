@@ -12,6 +12,8 @@ RUN cd /app/node_modules/.pnpm/node-pty@*/node_modules/node-pty && npx node-gyp 
 COPY packages/shared/ packages/shared/
 COPY apps/server/ apps/server/
 RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/server build
+# Copy non-TS assets (plugin .md/.json files) that tsc doesn't emit
+RUN cp -r apps/server/src/plugins apps/server/dist/plugins
 # Verify node-pty native binary exists for linux
 RUN test -f /app/node_modules/.pnpm/node-pty@*/node_modules/node-pty/build/Release/pty.node && echo "node-pty linux binary OK" || (echo "ERROR: node-pty build/Release/pty.node NOT found" && exit 1)
 ENV NODE_ENV=production
