@@ -175,10 +175,13 @@ async function handlePushEvent(
     sendToKanbanCC(project.id, "[SYSTEM] Base branch updated. Review pending tickets.");
   }
 
-  // Rebase all non-merged tickets
+  // Rebase all non-merged tickets (skip ticket currently being merged)
+  const mergeProgress = await db.getMergeProgress(project.id);
+  const mergingNumber = mergeProgress ? (mergeProgress.number as number) : null;
   const tickets = await db.getProjectTickets(project.id);
   for (const ticket of tickets) {
     if (ticket.status === "merged") continue;
+    if (ticket.number === mergingNumber) continue;
 
     broadcastEvent("rebase:started", project.id, { number: ticket.number });
 
