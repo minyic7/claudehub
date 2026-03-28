@@ -18,7 +18,7 @@ Before setting status to reviewing, verify:
 2. **Tests pass** — Run the project's test suite. All tests must pass.
 3. **Code committed** — All changes committed with clear commit messages.
 4. **Code pushed** — All commits pushed to the remote branch.
-5. **CI pending/passed** — Wait for the `[SYSTEM] CI check ...` notification. If CI fails, fix and retry.
+5. **CI pending/passed** — Wait for the `[SYSTEM] CI check ...` or `[SYSTEM] No CI workflows configured` notification. If no CI, proceed. If CI fails, fix and retry.
 
 ### Update Status
 

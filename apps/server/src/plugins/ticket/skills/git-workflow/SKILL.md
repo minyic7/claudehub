@@ -29,7 +29,13 @@ Adds integration tests for login success and failure cases."
 git push origin HEAD
 ```
 
-After pushing, **wait for the CI notification**. The server will send a `[SYSTEM] CI check "..." PASSED/FAILED` message to your stdin.
+After pushing, **wait for the CI notification**. The server will send one of:
+- `[SYSTEM] CI check "..." PASSED/FAILED` — CI result
+- `[SYSTEM] No CI workflows configured` — No CI in this repo, proceed directly
+
+### No CI
+
+If the server tells you no CI is configured, skip the CI wait and proceed directly to self-assessment and set status to reviewing.
 
 ### CI Failed
 

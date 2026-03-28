@@ -9,6 +9,7 @@ export const webhooks = new Hono();
 
 // Simple in-memory deduplication for webhook deliveries (TTL-based)
 const recentDeliveries = new Map<string, number>();
+
 const DEDUP_TTL_MS = 300_000; // 5 minutes
 
 function isDuplicate(deliveryId: string): boolean {
@@ -135,8 +136,26 @@ async function handlePushEvent(
   const ref = payload.ref as string;
   const baseBranchRef = `refs/heads/${project.baseBranch}`;
 
-  // Only handle base branch pushes
-  if (ref !== baseBranchRef) return;
+  if (ref !== baseBranchRef) {
+    // Feature branch push — check if repo has CI, notify Ticket CC if not
+    const branchName = ref.replace("refs/heads/", "");
+    const ticket = await db.getTicketByBranch(project.id, branchName);
+    if (ticket) {
+      const hasCi = await github.hasWorkflows(
+        project.githubToken, project.owner, project.repo,
+      );
+      if (!hasCi) {
+        const { sendToTicketCC, isTicketCCRunning } = await import("../services/cc/manager.js");
+        if (isTicketCCRunning(project.id, ticket.number)) {
+          sendToTicketCC(
+            project.id, ticket.number,
+            '[SYSTEM] No CI workflows configured for this repository. CI check is skipped — you may proceed to self-assessment and set status to reviewing.',
+          );
+        }
+      }
+    }
+    return;
+  }
 
   console.log(`Base branch push detected for ${project.id}`);
 

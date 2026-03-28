@@ -101,6 +101,25 @@ export async function getCIStatus(
   };
 }
 
+/** Check if a repo has any GitHub Actions workflow files */
+export async function hasWorkflows(
+  token: string,
+  owner: string,
+  repo: string,
+): Promise<boolean> {
+  const octokit = getClient(token);
+  try {
+    const { data } = await octokit.repos.getContent({
+      owner,
+      repo,
+      path: ".github/workflows",
+    });
+    return Array.isArray(data) && data.some((f) => f.name.endsWith(".yml") || f.name.endsWith(".yaml"));
+  } catch {
+    return false;
+  }
+}
+
 // ── Webhooks ──
 
 export async function registerWebhook(
