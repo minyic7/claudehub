@@ -20,7 +20,7 @@ services:
       redis: { condition: service_healthy }
     volumes:
       - repos-data:/repos
-      - claude-auth:/home/node/.claude
+      - claude-auth:/home/claudehub/.claude
     env_file:
       - path: .env
         required: false

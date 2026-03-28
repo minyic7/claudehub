@@ -16,6 +16,10 @@ RUN pnpm -F @claudehub/shared build && pnpm -F @claudehub/server build
 RUN cp -r apps/server/src/plugins apps/server/dist/plugins
 # Verify node-pty native binary exists for linux
 RUN test -f /app/node_modules/.pnpm/node-pty@*/node_modules/node-pty/build/Release/pty.node && echo "node-pty linux binary OK" || (echo "ERROR: node-pty build/Release/pty.node NOT found" && exit 1)
+# Create non-root user (claude CLI refuses --dangerously-skip-permissions as root)
+RUN useradd -m -s /bin/bash claudehub
+RUN mkdir -p /repos /home/claudehub/.claude && chown -R claudehub:claudehub /repos /home/claudehub/.claude /app
 ENV NODE_ENV=production
+USER claudehub
 EXPOSE 7700
 CMD ["node", "apps/server/dist/index.js"]
