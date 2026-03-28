@@ -170,8 +170,9 @@ export async function startKanbanCC(
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
-    "--continue",
   ];
+  // Only --continue when resuming after crash (new workspaces have no prior conversation)
+  if (options?.resume) args.push("--continue");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -334,8 +335,9 @@ async function doStartTicketCC(
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
-    "--continue",
   ];
+  // Only --continue when resuming after crash (new workspaces have no prior conversation)
+  if (options?.resume) args.push("--continue");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
