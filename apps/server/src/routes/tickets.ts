@@ -135,6 +135,7 @@ tickets.post("/", async (c) => {
   try {
     await git.gitFetch(project.owner, project.repo, project.githubToken);
     await git.addWorktree(project.owner, project.repo, branch, project.baseBranch);
+    await git.pushBranch(project.owner, project.repo, branch, project.githubToken);
   } catch (err) {
     return c.json(
       { error: `Git setup failed: ${err instanceof Error ? err.message : err}` },

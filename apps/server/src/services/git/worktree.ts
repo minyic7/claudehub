@@ -105,6 +105,19 @@ export async function addKanbanWorktree(
   return wtPath;
 }
 
+/** Push a branch to remote */
+export async function pushBranch(
+  owner: string,
+  repo: string,
+  branchName: string,
+  token: string,
+): Promise<void> {
+  const wtDir = worktreesDir(owner, repo);
+  const wtPath = path.join(wtDir, branchName.replace(/\//g, "-"));
+  const url = `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
+  await exec("git", ["push", url, branchName, "-u"], { cwd: wtPath });
+}
+
 /** Remove worktree */
 export async function removeWorktree(
   owner: string,
