@@ -14,10 +14,17 @@ import {
   cleanupPluginDir,
 } from "../plugin/assembler.js";
 import os from "node:os";
+import { createHash } from "node:crypto";
 
 const CLAUDE_BIN = "claude";
 const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
 const LOGIN_KEY = "login";
+
+/** Convert a project/ticket ID to a deterministic UUID for --session-id */
+function toSessionId(id: string): string {
+  const h = createHash("sha256").update(id).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -78,7 +85,7 @@ export async function startKanbanCC(
 
   const args = [
     "--session-id",
-    projectId,
+    toSessionId(projectId),
     "--append-system-prompt",
     systemPrompt,
     "--setting-sources",
@@ -230,7 +237,7 @@ async function doStartTicketCC(
 
   const args = [
     "--session-id",
-    `${projectId}-ticket-${ticket.number}`,
+    toSessionId(`${projectId}-ticket-${ticket.number}`),
     "--append-system-prompt",
     systemPrompt,
     "--setting-sources",
