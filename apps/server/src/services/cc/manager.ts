@@ -47,6 +47,24 @@ function resetRestartAttempts(key: string): void {
 }
 
 /**
+ * Check if a Claude CLI session already exists for a workspace directory.
+ * Sessions are stored in ~/.claude/projects/<dashified-cwd>/.
+ * If a session exists, we can use --continue to resume it.
+ */
+function hasExistingSession(cwd: string): boolean {
+  // Claude CLI converts cwd "/foo/bar" → "-foo-bar" for the projects dir
+  const dashified = cwd.replace(/\//g, "-");
+  const sessionDir = path.join(os.homedir(), ".claude", "projects", dashified);
+  try {
+    if (!fs.existsSync(sessionDir)) return false;
+    const files = fs.readdirSync(sessionDir);
+    return files.some((f) => f.endsWith(".jsonl"));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Pre-trust a workspace directory in ~/.claude.json so Claude CLI
  * doesn't show the interactive trust dialog (which freezes PTY).
  */
@@ -171,8 +189,10 @@ export async function startKanbanCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  // Only --continue when resuming after crash (new workspaces have no prior conversation)
-  if (options?.resume) args.push("--continue");
+  // Resume existing session if available (new workspaces have no session to continue)
+  if (options?.resume || hasExistingSession(worktreePath)) {
+    args.push("--continue");
+  }
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -336,8 +356,10 @@ async function doStartTicketCC(
     "project,local",
     "--dangerously-skip-permissions",
   ];
-  // Only --continue when resuming after crash (new workspaces have no prior conversation)
-  if (options?.resume) args.push("--continue");
+  // Resume existing session if available (new workspaces have no session to continue)
+  if (options?.resume || hasExistingSession(ticket.worktreePath)) {
+    args.push("--continue");
+  }
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
