@@ -59,7 +59,7 @@ export async function startKanbanCC(
   worktreePath: string,
   systemPrompt: string,
   env?: Record<string, string>,
-  options?: { pluginDir?: string; mcpConfig?: string },
+  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
 ): Promise<{ pid: number }> {
   const key = `kanban:${projectId}`;
   const existing = getPTY(key);
@@ -80,11 +80,11 @@ export async function startKanbanCC(
     projectId,
     "--append-system-prompt",
     systemPrompt,
-    "--resume",
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
   ];
+  if (options?.resume) args.push("--resume");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -104,9 +104,6 @@ export async function startKanbanCC(
     worktreePath,
     ccEnv,
     (data) => {
-      // Log CC output to server console for debugging
-      const text = data.toString().trim();
-      if (text) console.log(`[KanbanCC:${projectId}] ${text}`);
       broadcastTerminalOutput(key, data);
     },
     async (code) => {
@@ -132,7 +129,7 @@ export async function startKanbanCC(
         } else {
           console.log(`Auto-restarting Kanban CC for ${projectId} in ${delay}ms (attempt ${restartAttempts.get(key)})...`);
           setTimeout(() => {
-            startKanbanCC(projectId, worktreePath, systemPrompt, env).catch(
+            startKanbanCC(projectId, worktreePath, systemPrompt, env, { resume: true }).catch(
               (err) => console.error("Failed to restart Kanban CC:", err),
             );
           }, delay);
@@ -214,7 +211,7 @@ async function doStartTicketCC(
   ticket: Ticket,
   systemPrompt: string,
   env?: Record<string, string>,
-  options?: { pluginDir?: string; mcpConfig?: string },
+  options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
 ): Promise<{ pid: number; queued: boolean }> {
   const key = `ticket:${projectId}:${ticket.number}`;
   const existing = getPTY(key);
@@ -235,11 +232,11 @@ async function doStartTicketCC(
     `${projectId}-ticket-${ticket.number}`,
     "--append-system-prompt",
     systemPrompt,
-    "--resume",
     "--setting-sources",
     "project,local",
     "--dangerously-skip-permissions",
   ];
+  if (options?.resume) args.push("--resume");
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
 
@@ -295,7 +292,7 @@ async function doStartTicketCC(
             const settings = await db.getSettings();
             const freshEnv: Record<string, string> = {};
             if (settings.anthropicApiKey) freshEnv.ANTHROPIC_API_KEY = settings.anthropicApiKey;
-            doStartTicketCC(projectId, freshTicket, freshPrompt, freshEnv).catch((err) =>
+            doStartTicketCC(projectId, freshTicket, freshPrompt, freshEnv, { resume: true }).catch((err) =>
               console.error("Failed to restart Ticket CC:", err),
             );
           }, delay);
@@ -451,7 +448,7 @@ export async function recoverOnStartup(): Promise<void> {
         const settings = await db.getSettings();
         const env: Record<string, string> = {};
         if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
-        await startKanbanCC(project.id, worktreePath, systemPrompt, env);
+        await startKanbanCC(project.id, worktreePath, systemPrompt, env, { resume: true });
 
         // Send state summary so Kanban CC knows what happened during downtime
         const tickets = await db.getProjectTickets(project.id);
