@@ -21,5 +21,7 @@ RUN useradd -m -s /bin/bash claudehub
 RUN mkdir -p /repos /home/claudehub/.claude && chown -R claudehub:claudehub /repos /home/claudehub/.claude /app
 ENV NODE_ENV=production
 USER claudehub
+# Trust all git repos (volume ownership may differ from container user)
+RUN git config --global --add safe.directory '*'
 EXPOSE 7700
 CMD ["node", "apps/server/dist/index.js"]
