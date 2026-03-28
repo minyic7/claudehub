@@ -637,30 +637,33 @@ async function doMerge(
     prNumber,
   );
 
-  // Wait for CD on base branch (if configured) — poll up to 5 minutes
-  broadcastEvent("merge:progress", projectId, { number, status: "waiting_cd" });
-  await db.setMergeProgress(projectId, number, "waiting_cd");
-  // Renew merge lock TTL since CD wait can be long
-  const lockRenewed = await db.renewMergeLock(projectId);
-  if (!lockRenewed) {
-    throw new Error("Merge lock expired during merge — another merge may have started");
-  }
-  try {
-    const cd = await waitForCD(project, 300_000);
-    if (!cd.passed) {
+  // Wait for CD on base branch — only if repo has workflows configured
+  const hasCd = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+  if (hasCd) {
+    broadcastEvent("merge:progress", projectId, { number, status: "waiting_cd" });
+    await db.setMergeProgress(projectId, number, "waiting_cd");
+    // Renew merge lock TTL since CD wait can be long
+    const lockRenewed = await db.renewMergeLock(projectId);
+    if (!lockRenewed) {
+      throw new Error("Merge lock expired during merge — another merge may have started");
+    }
+    try {
+      const cd = await waitForCD(project, 300_000);
+      if (!cd.passed) {
+        broadcastEvent("merge:progress", projectId, {
+          number,
+          status: "cd_failed",
+          message: "CD failed on base branch — ticket is merged but deployment may need attention",
+        });
+      }
+    } catch (err) {
+      console.warn(`CD wait timed out or failed for ${projectId}#${number}:`, err);
       broadcastEvent("merge:progress", projectId, {
         number,
-        status: "cd_failed",
-        message: "CD failed on base branch — ticket is merged but deployment may need attention",
+        status: "cd_timeout",
+        message: "CD did not complete in time, proceeding",
       });
     }
-  } catch (err) {
-    console.warn(`CD wait timed out or failed for ${projectId}#${number}:`, err);
-    broadcastEvent("merge:progress", projectId, {
-      number,
-      status: "cd_timeout",
-      message: "CD did not complete in time, proceeding",
-    });
   }
 
   // Update ticket status
