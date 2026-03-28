@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -13,6 +13,8 @@ interface TerminalViewProps {
   panelWidth?: number;
 }
 
+const FIT_DEBOUNCE_MS = 80;
+
 export default function TerminalView({
   type,
   projectId,
@@ -23,7 +25,7 @@ export default function TerminalView({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const [fontReady, setFontReady] = useState(false);
+  const fitTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const { attach, sendResize, connected } = useTerminalWs({
     type,
@@ -32,14 +34,22 @@ export default function TerminalView({
     onExit,
   });
 
-  // Font readiness check
-  useEffect(() => {
-    // System fonts are always ready
-    setFontReady(true);
-  }, []);
+  // Debounced fit: waits for resize to settle before fitting
+  const debouncedFit = useCallback(() => {
+    clearTimeout(fitTimerRef.current);
+    fitTimerRef.current = setTimeout(() => {
+      const fitAddon = fitAddonRef.current;
+      const terminal = terminalRef.current;
+      if (!fitAddon || !terminal) return;
+      try {
+        fitAddon.fit();
+      } catch { return; }
+      sendResize(terminal.cols, terminal.rows);
+    }, FIT_DEBOUNCE_MS);
+  }, [sendResize]);
 
   useEffect(() => {
-    if (!containerRef.current || !fontReady) return;
+    if (!containerRef.current) return;
 
     const terminal = new Terminal({
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -72,45 +82,33 @@ export default function TerminalView({
     // Send initial size
     sendResize(terminal.cols, terminal.rows);
 
-    const resizeObserver = new ResizeObserver(() => {
-      // Use rAF to ensure layout is settled before measuring
-      requestAnimationFrame(() => {
-        try {
-          fitAddon.fit();
-        } catch { /* terminal may be disposed */ }
-        sendResize(terminal.cols, terminal.rows);
-      });
-    });
-    resizeObserver.observe(containerRef.current);
-
     return () => {
-      resizeObserver.disconnect();
+      clearTimeout(fitTimerRef.current);
       terminal.dispose();
       terminalRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [attach, sendResize, fontReady]);
+  }, [attach, sendResize]);
 
-  // Re-fit terminal when panel width changes (drag resize)
+  // Re-fit terminal when panel width changes (drag resize) or window resizes
   useEffect(() => {
     if (panelWidth == null) return;
-    const fitAddon = fitAddonRef.current;
-    const terminal = terminalRef.current;
-    if (!fitAddon || !terminal) return;
-    const id = requestAnimationFrame(() => {
-      try {
-        fitAddon.fit();
-      } catch { return; }
-      sendResize(terminal.cols, terminal.rows);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [panelWidth, sendResize]);
+    debouncedFit();
+  }, [panelWidth, debouncedFit]);
+
+  // Handle window resize (vertical changes etc.)
+  useEffect(() => {
+    const onWindowResize = () => debouncedFit();
+    window.addEventListener("resize", onWindowResize);
+    return () => window.removeEventListener("resize", onWindowResize);
+  }, [debouncedFit]);
 
   return (
     <div className="flex-1 relative">
-      {(!connected || !fontReady) && (
+      {!connected && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-base/80 z-10">
           <span className="font-pixel text-[8px] text-text-secondary">
-            {fontReady ? "Connecting..." : "Loading font..."}
+            Connecting...
           </span>
         </div>
       )}
