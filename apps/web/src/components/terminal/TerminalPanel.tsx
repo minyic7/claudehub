@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
@@ -39,9 +39,26 @@ interface TerminalPanelProps {
 }
 
 export default function TerminalPanel({ projectId }: TerminalPanelProps) {
-  const { activeTab, activeTicketNumber, panelCollapsed } = useTerminalStore();
+  const { activeTab, panelCollapsed } = useTerminalStore();
   const switchTab = useTerminalStore((s) => s.switchTab);
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
+  const columns = useBoardStore((s) => s.columns);
+
+  // Derive running/queued ticket numbers from board state
+  const activeTicketNumbers = useMemo(() => {
+    const tickets = columns.flatMap((col) => col.tickets);
+    return tickets
+      .filter((t) => t.ccStatus === "running" || t.ccStatus === "queued")
+      .sort((a, b) => a.number - b.number)
+      .map((t) => t.number);
+  }, [columns]);
+
+  // If active tab is a ticket that's no longer running, switch to kanban
+  useEffect(() => {
+    if (typeof activeTab === "number" && !activeTicketNumbers.includes(activeTab)) {
+      switchTab("kanban");
+    }
+  }, [activeTab, activeTicketNumbers, switchTab]);
 
   const [width, setWidth] = useState(loadWidth);
   const draggingRef = useRef(false);
@@ -149,6 +166,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     );
   }
 
+  const isKanbanTab = activeTab === "kanban";
+  const activeTicketTab = typeof activeTab === "number" ? activeTab : null;
+
   return (
     <div className="shrink-0 bg-bg-surface border-l border-border-default flex flex-col relative" style={{ width }}>
       {/* Drag handle */}
@@ -157,41 +177,43 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 transition-colors z-20"
       />
       {/* Tab bar */}
-      <div className="flex border-b border-border-default">
+      <div className="flex border-b border-border-default overflow-x-auto">
         <button
           onClick={() => switchTab("kanban")}
-          className={`flex-1 font-pixel text-[8px] px-3 py-2 transition-colors cursor-pointer ${
-            activeTab === "kanban"
+          className={`shrink-0 font-pixel text-[8px] px-3 py-2 transition-colors cursor-pointer ${
+            isKanbanTab
               ? "text-accent border-b border-accent"
               : "text-text-muted hover:text-text-secondary"
           }`}
         >
-          KANBAN CC
+          KANBAN
         </button>
-        {activeTicketNumber !== null && (
+        {activeTicketNumbers.map((num) => (
           <button
-            onClick={() => switchTab("ticket")}
-            className={`flex-1 font-pixel text-[8px] px-3 py-2 transition-colors cursor-pointer ${
-              activeTab === "ticket"
+            key={num}
+            onClick={() => switchTab(num)}
+            className={`shrink-0 font-pixel text-[8px] px-3 py-2 transition-colors cursor-pointer ${
+              activeTicketTab === num
                 ? "text-accent border-b border-accent"
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
-            TICKET #{activeTicketNumber}
+            #{num}
           </button>
-        )}
+        ))}
+        <div className="flex-1" />
         <button
           onClick={() =>
             useTerminalStore.setState({ panelCollapsed: true })
           }
-          className="font-pixel text-[8px] text-text-muted hover:text-text-secondary px-2 cursor-pointer"
+          className="shrink-0 font-pixel text-[8px] text-text-muted hover:text-text-secondary px-2 cursor-pointer"
         >
           {"<<"}
         </button>
       </div>
 
       {/* Terminal area */}
-      {activeTab === "kanban" && (
+      {isKanbanTab && (
         <div className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -261,12 +283,12 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         </div>
       )}
 
-      {activeTab === "ticket" && activeTicketNumber !== null && (
+      {activeTicketTab !== null && (
         <div className="flex-1 overflow-hidden flex">
           <TerminalView
             type="ticket"
             projectId={projectId}
-            ticketNumber={activeTicketNumber}
+            ticketNumber={activeTicketTab}
             panelWidth={width}
           />
         </div>

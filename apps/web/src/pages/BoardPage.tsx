@@ -32,13 +32,16 @@ export default function BoardPage() {
       .find((t) => t.number === number);
     if (ticket) {
       setSelectedTicket(ticket);
-      useTerminalStore.getState().openTicketTerminal(number);
+      const store = useTerminalStore.getState();
+      store.switchTab(number);
+      if (store.panelCollapsed) {
+        useTerminalStore.setState({ panelCollapsed: false });
+      }
     }
   };
 
   const handleTicketClose = () => {
     setSelectedTicket(null);
-    useTerminalStore.getState().closeTicketTerminal();
   };
 
   const refreshBoard = () => {
