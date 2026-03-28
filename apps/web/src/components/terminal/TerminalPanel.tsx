@@ -1,5 +1,7 @@
 import { useTerminalStore } from "../../stores/terminalStore.js";
+import { useBoardStore } from "../../stores/boardStore.js";
 import TerminalView from "./TerminalView.js";
+import CatScene from "./CatScene.js";
 
 interface TerminalPanelProps {
   projectId: string;
@@ -8,6 +10,9 @@ interface TerminalPanelProps {
 export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const { activeTab, activeTicketNumber, panelCollapsed } = useTerminalStore();
   const switchTab = useTerminalStore((s) => s.switchTab);
+  const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
+
+  const kanbanRunning = kanbanCCStatus === "running";
 
   if (panelCollapsed) {
     return (
@@ -60,19 +65,26 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         </button>
       </div>
 
-      {/* Terminal views */}
-      <div
-        className="flex-1 overflow-hidden"
-        style={{ display: activeTab === "kanban" ? "flex" : "none" }}
-      >
-        <TerminalView type="kanban" projectId={projectId} />
-      </div>
+      {/* Terminal views — only connect when CC is running */}
+      {activeTab === "kanban" && (
+        <div className="flex-1 overflow-hidden flex">
+          {kanbanRunning ? (
+            <TerminalView type="kanban" projectId={projectId} />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <div className="w-full h-[120px]">
+                <CatScene />
+              </div>
+              <span className="font-pixel text-[8px] text-text-muted">
+                KANBAN CC {kanbanCCStatus.toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
-      {activeTicketNumber !== null && (
-        <div
-          className="flex-1 overflow-hidden"
-          style={{ display: activeTab === "ticket" ? "flex" : "none" }}
-        >
+      {activeTab === "ticket" && activeTicketNumber !== null && (
+        <div className="flex-1 overflow-hidden flex">
           <TerminalView
             type="ticket"
             projectId={projectId}

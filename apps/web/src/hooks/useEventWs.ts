@@ -3,9 +3,12 @@ import type { WSEvent } from "@claudehub/shared";
 import { buildWsUrl } from "./useWsUrl.js";
 import { useBoardStore } from "../stores/boardStore.js";
 
+const MAX_BACKOFF = 30_000;
+
 export function useEventWs(projectId: string | undefined) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const backoffRef = useRef(1000);
 
   useEffect(() => {
     if (!projectId) return;
@@ -14,6 +17,10 @@ export function useEventWs(projectId: string | undefined) {
       const url = buildWsUrl("/ws/events", { projectId: projectId! });
       const ws = new WebSocket(url);
       wsRef.current = ws;
+
+      ws.onopen = () => {
+        backoffRef.current = 1000; // reset on success
+      };
 
       ws.onmessage = (e) => {
         try {
@@ -62,7 +69,9 @@ export function useEventWs(projectId: string | undefined) {
 
       ws.onclose = () => {
         wsRef.current = null;
-        reconnectTimer.current = setTimeout(connect, 3000);
+        const delay = backoffRef.current;
+        backoffRef.current = Math.min(delay * 2, MAX_BACKOFF);
+        reconnectTimer.current = setTimeout(connect, delay);
       };
 
       ws.onerror = () => {

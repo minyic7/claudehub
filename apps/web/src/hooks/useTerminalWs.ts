@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import { buildWsUrl } from "./useWsUrl.js";
 
+const MAX_BACKOFF = 30_000;
+
 interface UseTerminalWsOptions {
   type: "kanban" | "ticket";
   projectId: string;
@@ -18,10 +20,12 @@ export function useTerminalWs({
   const wsRef = useRef<WebSocket | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const backoffRef = useRef(1000);
+  const cleanedUpRef = useRef(false);
   const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
-    if (!enabled || !projectId) return;
+    if (!enabled || !projectId || cleanedUpRef.current) return;
     if (type === "ticket" && ticketNumber == null) return;
 
     const path =
@@ -33,7 +37,10 @@ export function useTerminalWs({
     wsRef.current = ws;
     ws.binaryType = "arraybuffer";
 
-    ws.onopen = () => setConnected(true);
+    ws.onopen = () => {
+      setConnected(true);
+      backoffRef.current = 1000; // reset on success
+    };
 
     ws.onmessage = (e) => {
       if (terminalRef.current) {
@@ -48,15 +55,21 @@ export function useTerminalWs({
     ws.onclose = () => {
       setConnected(false);
       wsRef.current = null;
-      reconnectTimer.current = setTimeout(connect, 3000);
+      if (!cleanedUpRef.current) {
+        const delay = backoffRef.current;
+        backoffRef.current = Math.min(delay * 2, MAX_BACKOFF);
+        reconnectTimer.current = setTimeout(connect, delay);
+      }
     };
 
     ws.onerror = () => ws.close();
   }, [type, projectId, ticketNumber, enabled]);
 
   useEffect(() => {
+    cleanedUpRef.current = false;
     connect();
     return () => {
+      cleanedUpRef.current = true;
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
@@ -65,7 +78,6 @@ export function useTerminalWs({
 
   const attach = useCallback((terminal: Terminal) => {
     terminalRef.current = terminal;
-    // Send terminal input to WebSocket
     terminal.onData((data) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(data);

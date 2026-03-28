@@ -1,28 +1,8 @@
 @import "tailwindcss";
 @import "./animations.css";
 
-/* ── Fonts ── */
-@font-face {
-  font-family: "Press Start 2P";
-  src: url("https://fonts.gstatic.com/s/pressstart2p/v15/e3t4euO8T-267oIAQAu6jDQyK3nVivM.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("https://fonts.gstatic.com/s/jetbrainsmono/v21/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOTk6OThhvA.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: optional;
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("https://fonts.gstatic.com/s/jetbrainsmono/v21/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTPlOTk6OThhvA.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: optional;
-}
+/* ── Fonts (via Google Fonts CSS API) ── */
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap");
 
 /* ── Design Tokens ── */
 @theme {
