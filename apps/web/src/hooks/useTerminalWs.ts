@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import { buildWsUrl } from "./useWsUrl.js";
+import { getConnectionId } from "../lib/utils.js";
 
 const MAX_BACKOFF = 30_000;
 
@@ -43,7 +44,7 @@ export function useTerminalWs({
           ? `/ws/terminal/kanban/${projectId}`
           : `/ws/terminal/ticket/${projectId}/${ticketNumber}`;
 
-    const ws = new WebSocket(buildWsUrl(path));
+    const ws = new WebSocket(buildWsUrl(path, { connectionId: getConnectionId() }));
     wsRef.current = ws;
     ws.binaryType = "arraybuffer";
 
