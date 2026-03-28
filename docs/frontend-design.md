@@ -1,4 +1,4 @@
-# Frontend Design
+                                                                                                                                                          # Frontend Design
 
 ## Tech Stack
 
@@ -323,10 +323,6 @@ Connects via `buildWsUrl("/ws/terminal/kanban/:projectId")` or `buildWsUrl("/ws/
 
 Replays ring buffer history on connect. Auto-reconnects.
 
-### useProject(projectId)
-
-Fetches and caches project data. Returns `{ project, loading, error }`.
-
 ## API Client
 
 ```typescript
@@ -377,13 +373,13 @@ export const api = {
 
   // Kanban CC
   startKanbanCC: (projectId: string) => request<void>(`/projects/${projectId}/kanban-cc`, { method: "POST" }),
-  getKanbanCC: (projectId: string) => request<KanbanCCStatus>(`/projects/${projectId}/kanban-cc`),
+  getKanbanCC: (projectId: string) => request<KanbanCCInfo>(`/projects/${projectId}/kanban-cc`),
   stopKanbanCC: (projectId: string) => request<void>(`/projects/${projectId}/kanban-cc`, { method: "DELETE" }),
   sendKanbanCCMessage: (projectId: string, content: string) => request<void>(`/projects/${projectId}/kanban-cc/messages`, { method: "POST", body: JSON.stringify({ content }) }),
 
   // Ticket CC
   startTicketCC: (projectId: string, number: number) => request<void>(`/projects/${projectId}/tickets/${number}/cc`, { method: "POST" }),
-  getTicketCC: (projectId: string, number: number) => request<TicketCCStatus>(`/projects/${projectId}/tickets/${number}/cc`),
+  getTicketCC: (projectId: string, number: number) => request<TicketCCInfo>(`/projects/${projectId}/tickets/${number}/cc`),
   stopTicketCC: (projectId: string, number: number) => request<void>(`/projects/${projectId}/tickets/${number}/cc`, { method: "DELETE" }),
   sendTicketCCMessage: (projectId: string, number: number, content: string) => request<void>(`/projects/${projectId}/tickets/${number}/cc/messages`, { method: "POST", body: JSON.stringify({ content }) }),
 

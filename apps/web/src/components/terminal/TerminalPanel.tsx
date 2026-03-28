@@ -30,7 +30,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   }
 
   return (
-    <div className="w-[400px] shrink-0 bg-bg-surface border-l border-border-default flex flex-col">
+    <div className="w-[420px] shrink-0 bg-bg-surface border-l border-border-default flex flex-col">
       {/* Tab bar */}
       <div className="flex border-b border-border-default">
         <button

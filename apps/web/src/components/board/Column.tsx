@@ -15,6 +15,13 @@ const columnColors: Record<string, string> = {
   merged: "border-t-status-ok",
 };
 
+const eyeColors: Record<string, string> = {
+  todo: "bg-[#808080]",
+  in_progress: "bg-[#5ED490]",
+  reviewing: "bg-[#E8C040]",
+  merged: "bg-[#70B8F0]",
+};
+
 export default function Column({ column, onTicketClick }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.status}`,
@@ -29,9 +36,12 @@ export default function Column({ column, onTicketClick }: ColumnProps) {
     >
       {/* Column header */}
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="font-pixel text-[8px] text-text-secondary uppercase">
-          {column.label}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full ${eyeColors[column.status] || "bg-text-muted"} opacity-70`} />
+          <span className="font-pixel text-[8px] text-text-secondary uppercase">
+            {column.label}
+          </span>
+        </div>
         <span className="font-pixel text-[8px] text-text-muted">
           {column.tickets.length}
         </span>

@@ -25,7 +25,7 @@ const mergeStepLabel: Record<string, string> = {
 };
 
 export default function TicketCard({ ticket, onClick }: TicketCardProps) {
-  const mergeStep = (ticket as Ticket & { mergeStep?: string }).mergeStep;
+  const { mergeStep } = ticket;
 
   const {
     attributes,

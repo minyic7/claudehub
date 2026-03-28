@@ -23,6 +23,8 @@ export interface Ticket {
   githubPrNumber?: number;
   taskBrief?: string;
   returnReason?: ReturnReason;
+  mergeStep?: string;
+  ciPassed?: boolean;
   createdAt: string;
   updatedAt: string;
 }

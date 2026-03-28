@@ -180,7 +180,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   handleMergeProgress: (data) => {
     set((state) => ({
-      columns: updateTicketInColumns(state.columns, data.number, { mergeStep: data.step } as Partial<Ticket>),
+      columns: updateTicketInColumns(state.columns, data.number, { mergeStep: data.step }),
     }));
   },
 
@@ -190,7 +190,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   handleCICompleted: (data) => {
     set((state) => ({
-      columns: updateTicketInColumns(state.columns, data.number, { ciPassed: data.passed } as Partial<Ticket>),
+      columns: updateTicketInColumns(state.columns, data.number, { ciPassed: data.passed }),
     }));
   },
 
