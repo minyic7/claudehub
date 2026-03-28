@@ -14,6 +14,18 @@ export function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max - 1) + "…" : str;
 }
 
+// Anthropic API key — stored in localStorage, sent to server on CC start
+const API_KEY_STORAGE = "claudehub:apiKey";
+export function getApiKey(): string | null {
+  return localStorage.getItem(API_KEY_STORAGE);
+}
+export function setApiKey(key: string): void {
+  localStorage.setItem(API_KEY_STORAGE, key);
+}
+export function clearApiKey(): void {
+  localStorage.removeItem(API_KEY_STORAGE);
+}
+
 // Generate a stable connection ID per browser tab for operator lock
 const CONNECTION_ID_KEY = "claudehub:connectionId";
 export function getConnectionId(): string {

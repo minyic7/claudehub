@@ -17,6 +17,12 @@ kanbanCC.post("/", async (c) => {
     return c.json({ error: "Kanban CC already running" }, 409);
   }
 
+  // Accept apiKey from body (frontend localStorage) and persist to Redis
+  const body = await c.req.json().catch(() => ({}));
+  if (body.apiKey) {
+    await db.updateSettings({ anthropicApiKey: body.apiKey });
+  }
+
   // Ensure kanban worktree exists
   let worktreePath: string;
   try {
@@ -33,9 +39,11 @@ kanbanCC.post("/", async (c) => {
   const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
   const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl);
 
+  // Use apiKey from body or fall back to Redis
   const settings = await db.getSettings();
   const env: Record<string, string> = {};
-  if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
+  const apiKey = body.apiKey || settings.anthropicApiKey;
+  if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
 
   try {
     const { pid } = await ccManager.startKanbanCC(projectId, worktreePath, systemPrompt, env);

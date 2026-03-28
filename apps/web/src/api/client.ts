@@ -64,8 +64,11 @@ export const api = {
     request<void>(`/projects/${projectId}/tickets/${number}/merge`, { method: "DELETE" }),
 
   // Kanban CC
-  startKanbanCC: (projectId: string) =>
-    request<void>(`/projects/${projectId}/kanban-cc`, { method: "POST" }),
+  startKanbanCC: (projectId: string, apiKey?: string | null) =>
+    request<void>(`/projects/${projectId}/kanban-cc`, {
+      method: "POST",
+      body: JSON.stringify(apiKey ? { apiKey } : {}),
+    }),
   getKanbanCC: (projectId: string) =>
     request<KanbanCCInfo>(`/projects/${projectId}/kanban-cc`),
   stopKanbanCC: (projectId: string) =>
@@ -74,8 +77,11 @@ export const api = {
     request<void>(`/projects/${projectId}/kanban-cc/messages`, { method: "POST", body: JSON.stringify({ content }) }),
 
   // Ticket CC
-  startTicketCC: (projectId: string, number: number) =>
-    request<void>(`/projects/${projectId}/tickets/${number}/cc`, { method: "POST" }),
+  startTicketCC: (projectId: string, number: number, apiKey?: string | null) =>
+    request<void>(`/projects/${projectId}/tickets/${number}/cc`, {
+      method: "POST",
+      body: JSON.stringify(apiKey ? { apiKey } : {}),
+    }),
   getTicketCC: (projectId: string, number: number) =>
     request<TicketCCInfo>(`/projects/${projectId}/tickets/${number}/cc`),
   stopTicketCC: (projectId: string, number: number) =>
@@ -87,6 +93,14 @@ export const api = {
   getSettings: () => request<SettingsResponse>("/settings"),
   updateSettings: (data: UpdateSettingsInput) =>
     request<SettingsResponse>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
+
+  // Claude Login (OAuth via terminal)
+  startClaudeLogin: () =>
+    request<{ status: string; pid: number }>("/claude-login", { method: "POST" }),
+  getClaudeLogin: () =>
+    request<{ running: boolean }>("/claude-login"),
+  stopClaudeLogin: () =>
+    request<void>("/claude-login", { method: "DELETE" }),
 
   // Auth
   login: (username: string, password: string) =>

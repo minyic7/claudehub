@@ -5,7 +5,7 @@ import { buildWsUrl } from "./useWsUrl.js";
 const MAX_BACKOFF = 30_000;
 
 interface UseTerminalWsOptions {
-  type: "kanban" | "ticket";
+  type: "kanban" | "ticket" | "login";
   projectId: string;
   ticketNumber?: number;
   enabled?: boolean;
@@ -25,13 +25,16 @@ export function useTerminalWs({
   const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
-    if (!enabled || !projectId || cleanedUpRef.current) return;
+    if (!enabled || cleanedUpRef.current) return;
+    if (type !== "login" && !projectId) return;
     if (type === "ticket" && ticketNumber == null) return;
 
     const path =
-      type === "kanban"
-        ? `/ws/terminal/kanban/${projectId}`
-        : `/ws/terminal/ticket/${projectId}/${ticketNumber}`;
+      type === "login"
+        ? "/ws/terminal/login"
+        : type === "kanban"
+          ? `/ws/terminal/kanban/${projectId}`
+          : `/ws/terminal/ticket/${projectId}/${ticketNumber}`;
 
     const ws = new WebSocket(buildWsUrl(path));
     wsRef.current = ws;

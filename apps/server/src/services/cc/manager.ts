@@ -17,6 +17,7 @@ import os from "node:os";
 
 const CLAUDE_BIN = "claude";
 const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
+const LOGIN_KEY = "login";
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -501,4 +502,37 @@ export async function recoverOnStartup(): Promise<void> {
 
   // Start scheduling queued Ticket CCs
   await scheduleNext();
+}
+
+// ── Login PTY (bare claude for OAuth login) ──
+
+export function startLoginPTY(): { pid: number } {
+  const existing = getPTY(LOGIN_KEY);
+  if (existing) {
+    throw new Error("Login session already running");
+  }
+
+  const instance = spawnPTY(
+    LOGIN_KEY,
+    CLAUDE_BIN,
+    [],
+    os.homedir(),
+    undefined,
+    (data) => {
+      broadcastTerminalOutput(LOGIN_KEY, data);
+    },
+    (_code) => {
+      console.log("Login PTY exited");
+    },
+  );
+
+  return { pid: instance.pid };
+}
+
+export function stopLoginPTY(): void {
+  killPTY(LOGIN_KEY);
+}
+
+export function isLoginPTYRunning(): boolean {
+  return !!getPTY(LOGIN_KEY);
 }

@@ -29,9 +29,16 @@ ticketCC.post("/", async (c) => {
     apiBaseUrl, project?.baseBranch,
   );
 
+  // Accept apiKey from body (frontend localStorage) and persist to Redis
+  const body = await c.req.json().catch(() => ({}));
+  if (body.apiKey) {
+    await db.updateSettings({ anthropicApiKey: body.apiKey });
+  }
+
   const settings = await db.getSettings();
   const env: Record<string, string> = {};
-  if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
+  const apiKey = body.apiKey || settings.anthropicApiKey;
+  if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
 
   try {
     const { pid, queued } = await ccManager.startTicketCC(projectId, ticket, systemPrompt, env);

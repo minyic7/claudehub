@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { api } from "../api/client.js";
 import { useBoardStore } from "../stores/boardStore.js";
+import { getApiKey } from "../lib/utils.js";
 
 export function useAutoStartKanbanCC(projectId: string | undefined) {
   useEffect(() => {
@@ -12,7 +13,7 @@ export function useAutoStartKanbanCC(projectId: string | undefined) {
         useBoardStore.setState({ kanbanCCStatus: info.status });
         if (info.status === "stopped") {
           try {
-            await api.startKanbanCC(projectId!);
+            await api.startKanbanCC(projectId!, getApiKey());
             useBoardStore.setState({ kanbanCCStatus: "running" });
           } catch {
             // 409 = already running, silently ignore

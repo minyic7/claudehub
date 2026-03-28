@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
+import { api } from "../../api/client.js";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
@@ -12,7 +14,28 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const switchTab = useTerminalStore((s) => s.switchTab);
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
 
+  const [loginRunning, setLoginRunning] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
   const kanbanRunning = kanbanCCStatus === "running";
+
+  const handleStartLogin = async () => {
+    setLoginLoading(true);
+    try {
+      await api.startClaudeLogin();
+      setLoginRunning(true);
+    } catch {
+      // 409 = already running
+      setLoginRunning(true);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleStopLogin = async () => {
+    await api.stopClaudeLogin();
+    setLoginRunning(false);
+  };
 
   if (panelCollapsed) {
     return (
@@ -70,6 +93,23 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         <div className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
             <TerminalView type="kanban" projectId={projectId} />
+          ) : loginRunning ? (
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-default">
+                <span className="font-pixel text-[7px] text-text-muted">
+                  CLAUDE LOGIN SESSION
+                </span>
+                <button
+                  onClick={handleStopLogin}
+                  className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer"
+                >
+                  CLOSE
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden flex">
+                <TerminalView type="login" projectId={projectId} />
+              </div>
+            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
               <div className="w-full h-[120px]">
@@ -78,6 +118,13 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               <span className="font-pixel text-[8px] text-text-muted">
                 KANBAN CC {kanbanCCStatus.toUpperCase()}
               </span>
+              <button
+                onClick={handleStartLogin}
+                disabled={loginLoading}
+                className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
+              >
+                {loginLoading ? "STARTING..." : "OPEN CLAUDE LOGIN TERMINAL"}
+              </button>
             </div>
           )}
         </div>

@@ -3,12 +3,13 @@ import { api } from "../api/client.js";
 import Button from "../components/ui/Button.js";
 import Input from "../components/ui/Input.js";
 import Spinner from "../components/ui/Spinner.js";
+import { getApiKey, setApiKey, clearApiKey } from "../lib/utils.js";
 
 import type { SettingsResponse } from "@claudehub/shared";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const [maxConcurrent, setMaxConcurrent] = useState("20");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,7 +18,8 @@ export default function SettingsPage() {
   useEffect(() => {
     api.getSettings().then((s) => {
       setSettings(s);
-      setApiKey(s.anthropicApiKey || "");
+      // Prefer localStorage value, fall back to server (masked)
+      setApiKeyInput(getApiKey() || s.anthropicApiKey || "");
       setMaxConcurrent(String(s.maxConcurrentTickets ?? 20));
       setLoading(false);
     });
@@ -31,9 +33,15 @@ export default function SettingsPage() {
       const updates: Record<string, unknown> = {
         maxConcurrentTickets: Number(maxConcurrent),
       };
-      if (apiKey && apiKey !== settings?.anthropicApiKey) {
-        updates.anthropicApiKey = apiKey;
+
+      // Save API key to localStorage and server
+      if (apiKeyInput && !apiKeyInput.startsWith("****")) {
+        setApiKey(apiKeyInput);
+        updates.anthropicApiKey = apiKeyInput;
+      } else if (!apiKeyInput) {
+        clearApiKey();
       }
+
       await api.updateSettings(updates);
       setMessage("Saved");
       setTimeout(() => setMessage(""), 2000);
@@ -59,13 +67,18 @@ export default function SettingsPage() {
       </h1>
 
       <form onSubmit={handleSave} className="flex flex-col gap-4">
-        <Input
-          label="ANTHROPIC API KEY"
-          type="password"
-          placeholder="sk-ant-..."
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
+        <div>
+          <Input
+            label="ANTHROPIC API KEY"
+            type="password"
+            placeholder="sk-ant-..."
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+          />
+          <p className="font-pixel text-[7px] text-text-muted mt-1">
+            Stored in browser localStorage. Sent to server on CC start.
+          </p>
+        </div>
 
         <Input
           label="MAX CONCURRENT TICKETS"
@@ -89,6 +102,12 @@ export default function SettingsPage() {
           )}
         </div>
       </form>
+
+      <div className="mt-8 pt-6 border-t border-border-default">
+        <p className="font-pixel text-[8px] text-text-muted mb-2">
+          OR use Claude subscription: open the Kanban CC terminal and run /login
+        </p>
+      </div>
     </div>
   );
 }
