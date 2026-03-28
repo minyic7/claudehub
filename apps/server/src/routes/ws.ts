@@ -205,16 +205,20 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
         },
         onMessage(event, ws) {
           const key = "login";
-          const resize = parseResize(event.data);
+          // Debug: log incoming message type
+          const d = event.data;
+          const isStr = typeof d === "string";
+          console.log(`[ws:login] msg type=${isStr ? "string" : d?.constructor?.name} len=${isStr ? d.length : (d as ArrayBuffer)?.byteLength}`);
+          const resize = parseResize(d);
           if (resize) {
             resizePTY(key, resize.cols, resize.rows);
             return;
           }
           const pty = getPTY(key);
           if (pty) {
-            const data = typeof event.data === "string"
-              ? event.data
-              : new TextDecoder().decode(event.data as ArrayBuffer);
+            const data = isStr
+              ? d
+              : new TextDecoder().decode(d as ArrayBuffer);
             pty.pty.write(data);
           }
         },

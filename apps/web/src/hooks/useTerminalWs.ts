@@ -112,15 +112,18 @@ export function useTerminalWs({
 
   const sendResize = useCallback((cols: number, rows: number) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      const json = JSON.stringify({ cols, rows });
-      const encoder = new TextEncoder();
-      const jsonBytes = encoder.encode(json);
-      const payload = new Uint8Array(1 + jsonBytes.length);
-      payload[0] = 0x01;
-      payload.set(jsonBytes, 1);
-      ws.send(payload);
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[terminal] sendResize: WS not open, state=", ws?.readyState);
+      return;
     }
+    const json = JSON.stringify({ cols, rows });
+    const encoder = new TextEncoder();
+    const jsonBytes = encoder.encode(json);
+    const payload = new Uint8Array(1 + jsonBytes.length);
+    payload[0] = 0x01;
+    payload.set(jsonBytes, 1);
+    console.log(`[terminal] sendResize ${cols}x${rows}, bytes=${payload.length}`);
+    ws.send(payload);
   }, []);
 
   return { attach, send, sendResize, connected };
