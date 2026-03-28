@@ -342,6 +342,7 @@ export async function startTicketCC(
   ticket: Ticket,
   systemPrompt: string,
   env?: Record<string, string>,
+  options?: { silent?: boolean },
 ): Promise<{ pid: number; queued: boolean }> {
   // Single-project limit: stop previous project's CCs if different
   await ensureSingleProject(projectId);
@@ -357,14 +358,16 @@ export async function startTicketCC(
       ccStatus: "queued",
       lastActiveAt: new Date().toISOString(),
     });
-    broadcastEvent("ticket:status_changed", projectId, {
-      number: ticket.number,
-      ccStatus: "queued",
-    });
+    if (!options?.silent) {
+      broadcastEvent("ticket:status_changed", projectId, {
+        number: ticket.number,
+        ccStatus: "queued",
+      });
+    }
     return { pid: 0, queued: true };
   }
 
-  return doStartTicketCC(projectId, ticket, systemPrompt, env);
+  return doStartTicketCC(projectId, ticket, systemPrompt, env, undefined, options);
 }
 
 async function doStartTicketCC(
@@ -373,6 +376,7 @@ async function doStartTicketCC(
   systemPrompt: string,
   env?: Record<string, string>,
   options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean; sessionId?: string },
+  startOptions?: { silent?: boolean },
 ): Promise<{ pid: number; queued: boolean }> {
   const key = `ticket:${projectId}:${ticket.number}`;
   manuallyStopped.delete(key);
@@ -497,10 +501,12 @@ async function doStartTicketCC(
     lastActiveAt: new Date().toISOString(),
   });
 
-  broadcastEvent("ticket:status_changed", projectId, {
-    number: ticket.number,
-    ccStatus: "running",
-  });
+  if (!startOptions?.silent) {
+    broadcastEvent("ticket:status_changed", projectId, {
+      number: ticket.number,
+      ccStatus: "running",
+    });
+  }
 
   // For fresh sessions (no --continue/--resume), Claude CLI waits for user input.
   // Send the task brief as initial prompt so Ticket CC starts working automatically.

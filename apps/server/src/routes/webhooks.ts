@@ -103,7 +103,10 @@ async function handleIssueEvent(
 
   if (action === "closed") {
     // Only delete non-merged tickets (merged tickets close via PR)
-    if (ticket.status !== "merged") {
+    // Also skip if a merge is in progress — the issue was closed by the PR merge
+    const mergeProgress = await db.getMergeProgress(project.id);
+    const isMerging = mergeProgress && (mergeProgress.number as number) === ticket.number;
+    if (ticket.status !== "merged" && !isMerging) {
       await deleteTicketWithCascade(project, ticket);
     }
   }

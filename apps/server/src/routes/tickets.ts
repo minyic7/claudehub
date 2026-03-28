@@ -341,7 +341,8 @@ tickets.patch("/:number", async (c) => {
 
       const updatedTicket = { ...ticket, ...updates };
       try {
-        await startTicketCC(projectId, updatedTicket, systemPrompt, env);
+        const result = await startTicketCC(projectId, updatedTicket, systemPrompt, env, { silent: true });
+        updates.ccStatus = result.queued ? "queued" : "running";
       } catch (err) {
         console.warn("Failed to start Ticket CC:", err);
       }
