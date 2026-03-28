@@ -76,7 +76,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   operatorConnectionId: null,
   loading: false,
 
-  isOperator: () => get().operatorConnectionId === getConnectionId(),
+  isOperator: () => {
+    const opId = get().operatorConnectionId;
+    // No operator assigned = everyone can operate (single user default)
+    return opId === null || opId === getConnectionId();
+  },
 
   fetchBoard: async (projectId) => {
     set({ loading: true });
