@@ -27,6 +27,10 @@ export function useTerminalWs({
   const wasConnectedRef = useRef(false);
   const [connected, setConnected] = useState(false);
 
+  // Keep onExit in a ref so it doesn't cause reconnections when the callback identity changes
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
+
   const connect = useCallback(() => {
     if (!enabled || cleanedUpRef.current) return;
     if (type !== "login" && !projectId) return;
@@ -65,7 +69,7 @@ export function useTerminalWs({
 
       // 1011 = PTY not running. If we were previously connected, the process exited.
       if (e.code === 1011 && wasConnectedRef.current) {
-        onExit?.();
+        onExitRef.current?.();
         return; // Don't reconnect
       }
 
@@ -77,7 +81,7 @@ export function useTerminalWs({
     };
 
     ws.onerror = () => ws.close();
-  }, [type, projectId, ticketNumber, enabled, onExit]);
+  }, [type, projectId, ticketNumber, enabled]);
 
   useEffect(() => {
     cleanedUpRef.current = false;
