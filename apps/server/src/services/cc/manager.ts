@@ -559,33 +559,6 @@ export async function recoverOnStartup(): Promise<void> {
         const env: Record<string, string> = {};
         if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
         await startKanbanCC(project.id, worktreePath, systemPrompt, env, { resume: true });
-
-        // Send state summary so Kanban CC knows what happened during downtime
-        const tickets = await db.getProjectTickets(project.id);
-        const reviewing = tickets.filter((t) => t.status === "reviewing");
-        const conflicts = tickets.filter((t) => t.returnReason === "conflict");
-        const inProgress = tickets.filter((t) => t.status === "in_progress");
-        const lines: string[] = ["[SYSTEM] Server restarted. Current board state:"];
-        lines.push(`  Total tickets: ${tickets.length}`);
-        if (reviewing.length > 0) {
-          lines.push(`  Awaiting review: ${reviewing.map((t) => `#${t.number}`).join(", ")}`);
-        }
-        if (conflicts.length > 0) {
-          lines.push(`  Rebase conflicts: ${conflicts.map((t) => `#${t.number}`).join(", ")}`);
-        }
-        if (inProgress.length > 0) {
-          lines.push(`  In progress: ${inProgress.map((t) => `#${t.number}`).join(", ")}`);
-        }
-        // Retry sending state summary until CC PTY is ready (up to 15s)
-        const msg = lines.join("\n");
-        const pid = project.id;
-        (async () => {
-          for (let i = 0; i < 5; i++) {
-            await new Promise((r) => setTimeout(r, 3000));
-            if (sendToKanbanCC(pid, msg)) return;
-          }
-          console.warn(`Failed to send recovery state summary to Kanban CC for ${pid}`);
-        })();
       } catch (err) {
         console.error(`Failed to recover Kanban CC for ${project.id}:`, err);
       }
