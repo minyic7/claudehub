@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
 import ProtectedRoute from "./components/layout/ProtectedRoute.js";
 import Layout from "./components/layout/Layout.js";
-import ScanlineOverlay from "./components/layout/ScanlineOverlay.js";
 import PawPrintBg from "./components/layout/PawPrintBg.js";
 import LoginPage from "./pages/LoginPage.js";
 import ProjectsPage from "./pages/ProjectsPage.js";
@@ -13,7 +12,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-bg-base text-text-primary relative">
       <PawPrintBg />
-      <ScanlineOverlay />
       <Toaster
         position="bottom-right"
         toastOptions={{

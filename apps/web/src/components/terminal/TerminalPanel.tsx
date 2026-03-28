@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
+import { getApiKey } from "../../lib/utils.js";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
@@ -109,6 +110,27 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     setLoginRunning(false);
   };
 
+  const [ccLoading, setCcLoading] = useState(false);
+
+  const handleStopKanbanCC = async () => {
+    setCcLoading(true);
+    try {
+      await api.stopKanbanCC(projectId);
+    } catch { /* ignore */ }
+    setCcLoading(false);
+  };
+
+  const handleRestartKanbanCC = async () => {
+    setCcLoading(true);
+    try {
+      await api.stopKanbanCC(projectId);
+      // Small delay to let process exit
+      await new Promise((r) => setTimeout(r, 500));
+      await api.startKanbanCC(projectId, getApiKey());
+    } catch { /* ignore */ }
+    setCcLoading(false);
+  };
+
   if (panelCollapsed) {
     return (
       <div
@@ -169,7 +191,27 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
       {activeTab === "kanban" && (
         <div ref={termAreaRef} className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
-            <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-end gap-2 px-3 py-1 border-b border-border-default">
+                <button
+                  onClick={handleRestartKanbanCC}
+                  disabled={ccLoading}
+                  className="font-pixel text-[7px] text-text-muted hover:text-accent cursor-pointer disabled:opacity-50"
+                >
+                  RESTART
+                </button>
+                <button
+                  onClick={handleStopKanbanCC}
+                  disabled={ccLoading}
+                  className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer disabled:opacity-50"
+                >
+                  STOP
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden flex">
+                <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
+              </div>
+            </div>
           ) : loginRunning ? (
             <div className="flex-1 flex flex-col">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-default">
