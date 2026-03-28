@@ -104,6 +104,9 @@ export async function startKanbanCC(
     worktreePath,
     ccEnv,
     (data) => {
+      // Log CC output to server console for debugging
+      const text = data.toString().trim();
+      if (text) console.log(`[KanbanCC:${projectId}] ${text}`);
       broadcastTerminalOutput(key, data);
     },
     async (code) => {
