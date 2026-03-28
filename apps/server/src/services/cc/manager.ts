@@ -512,10 +512,11 @@ export function startLoginPTY(): { pid: number } {
     throw new Error("Login session already running");
   }
 
+  // Spawn a shell so the user can run `claude auth login` or `claude auth status`
   const instance = spawnPTY(
     LOGIN_KEY,
-    CLAUDE_BIN,
-    [],
+    "/bin/bash",
+    ["--login"],
     os.homedir(),
     undefined,
     (data) => {
@@ -525,6 +526,11 @@ export function startLoginPTY(): { pid: number } {
       console.log("Login PTY exited");
     },
   );
+
+  // Send a helpful hint
+  setTimeout(() => {
+    writeToPTY(LOGIN_KEY, "echo '=== Claude Auth Shell ==='\necho 'Run: claude auth login'\necho 'Or:  claude auth status'\necho ''\n");
+  }, 300);
 
   return { pid: instance.pid };
 }
