@@ -1,9 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTerminalStore } from "../../stores/terminalStore.js";
 import { useBoardStore } from "../../stores/boardStore.js";
 import { api } from "../../api/client.js";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
+
+// Estimate terminal cols/rows from a container element
+function estimateTermSize(el: HTMLElement): { cols: number; rows: number } {
+  // JetBrains Mono at 13px: ~7.8px per char, line-height 1.4 = ~18.2px per row
+  const charWidth = 7.8;
+  const charHeight = 13 * 1.4;
+  const rect = el.getBoundingClientRect();
+  return {
+    cols: Math.max(20, Math.floor(rect.width / charWidth)),
+    rows: Math.max(5, Math.floor(rect.height / charHeight)),
+  };
+}
 
 interface TerminalPanelProps {
   projectId: string;
@@ -16,13 +28,22 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
 
   const [loginRunning, setLoginRunning] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
+  const termAreaRef = useRef<HTMLDivElement>(null);
 
   const kanbanRunning = kanbanCCStatus === "running";
 
   const handleStartLogin = async () => {
     setLoginLoading(true);
     try {
-      await api.startClaudeLogin();
+      // Measure the terminal area to pass correct dimensions
+      let cols: number | undefined;
+      let rows: number | undefined;
+      if (termAreaRef.current) {
+        const size = estimateTermSize(termAreaRef.current);
+        cols = size.cols;
+        rows = size.rows;
+      }
+      await api.startClaudeLogin(cols, rows);
       setLoginRunning(true);
     } catch {
       // 409 = already running
@@ -88,9 +109,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         </button>
       </div>
 
-      {/* Terminal views — only connect when CC is running */}
+      {/* Terminal area */}
       {activeTab === "kanban" && (
-        <div className="flex-1 overflow-hidden flex">
+        <div ref={termAreaRef} className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
             <TerminalView type="kanban" projectId={projectId} />
           ) : loginRunning ? (
@@ -107,7 +128,11 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                 </button>
               </div>
               <div className="flex-1 overflow-hidden flex">
-                <TerminalView type="login" projectId={projectId} />
+                <TerminalView
+                  type="login"
+                  projectId={projectId}
+                  onExit={() => setLoginRunning(false)}
+                />
               </div>
             </div>
           ) : (

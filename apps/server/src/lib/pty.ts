@@ -67,6 +67,7 @@ export function spawnPTY(
   env?: Record<string, string>,
   onData?: (data: Buffer) => void,
   onExit?: (code: number) => void,
+  options?: { cols?: number; rows?: number },
 ): PTYInstance {
   // Kill existing if any
   killPTY(key);
@@ -75,8 +76,8 @@ export function spawnPTY(
 
   const ptyProcess = spawn(command, args, {
     name: "xterm-256color",
-    cols: 80,
-    rows: 24,
+    cols: options?.cols || 80,
+    rows: options?.rows || 24,
     cwd,
     env: mergedEnv,
   });

@@ -95,8 +95,11 @@ export const api = {
     request<SettingsResponse>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 
   // Claude Login (OAuth via terminal)
-  startClaudeLogin: () =>
-    request<{ status: string; pid: number }>("/claude-login", { method: "POST" }),
+  startClaudeLogin: (cols?: number, rows?: number) =>
+    request<{ status: string; pid: number }>("/claude-login", {
+      method: "POST",
+      body: JSON.stringify({ cols, rows }),
+    }),
   getClaudeLogin: () =>
     request<{ running: boolean }>("/claude-login"),
   stopClaudeLogin: () =>

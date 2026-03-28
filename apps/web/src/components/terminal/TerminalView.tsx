@@ -8,12 +8,14 @@ interface TerminalViewProps {
   type: "kanban" | "ticket" | "login";
   projectId: string;
   ticketNumber?: number;
+  onExit?: () => void;
 }
 
 export default function TerminalView({
   type,
   projectId,
   ticketNumber,
+  onExit,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -24,6 +26,7 @@ export default function TerminalView({
     type,
     projectId,
     ticketNumber,
+    onExit,
   });
 
   // Wait for JetBrains Mono to load before initializing terminal

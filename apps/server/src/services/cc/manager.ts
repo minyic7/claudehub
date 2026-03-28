@@ -506,7 +506,7 @@ export async function recoverOnStartup(): Promise<void> {
 
 // ── Login PTY (bare claude for OAuth login) ──
 
-export function startLoginPTY(): { pid: number } {
+export function startLoginPTY(cols?: number, rows?: number): { pid: number } {
   const existing = getPTY(LOGIN_KEY);
   if (existing) {
     throw new Error("Login session already running");
@@ -523,7 +523,10 @@ export function startLoginPTY(): { pid: number } {
     },
     (_code) => {
       console.log("Login PTY exited");
+      // Broadcast exit so frontend knows to stop reconnecting
+      broadcastEvent("kanban_cc:status_changed", "__login__", { status: "stopped" });
     },
+    { cols, rows },
   );
 
   return { pid: instance.pid };

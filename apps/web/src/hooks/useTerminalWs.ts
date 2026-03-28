@@ -9,6 +9,7 @@ interface UseTerminalWsOptions {
   projectId: string;
   ticketNumber?: number;
   enabled?: boolean;
+  onExit?: () => void;
 }
 
 export function useTerminalWs({
@@ -16,12 +17,14 @@ export function useTerminalWs({
   projectId,
   ticketNumber,
   enabled = true,
+  onExit,
 }: UseTerminalWsOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const backoffRef = useRef(1000);
   const cleanedUpRef = useRef(false);
+  const wasConnectedRef = useRef(false);
   const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
@@ -42,7 +45,8 @@ export function useTerminalWs({
 
     ws.onopen = () => {
       setConnected(true);
-      backoffRef.current = 1000; // reset on success
+      wasConnectedRef.current = true;
+      backoffRef.current = 1000;
     };
 
     ws.onmessage = (e) => {
@@ -55,9 +59,16 @@ export function useTerminalWs({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       setConnected(false);
       wsRef.current = null;
+
+      // 1011 = PTY not running. If we were previously connected, the process exited.
+      if (e.code === 1011 && wasConnectedRef.current) {
+        onExit?.();
+        return; // Don't reconnect
+      }
+
       if (!cleanedUpRef.current) {
         const delay = backoffRef.current;
         backoffRef.current = Math.min(delay * 2, MAX_BACKOFF);
@@ -66,10 +77,11 @@ export function useTerminalWs({
     };
 
     ws.onerror = () => ws.close();
-  }, [type, projectId, ticketNumber, enabled]);
+  }, [type, projectId, ticketNumber, enabled, onExit]);
 
   useEffect(() => {
     cleanedUpRef.current = false;
+    wasConnectedRef.current = false;
     connect();
     return () => {
       cleanedUpRef.current = true;
@@ -99,7 +111,7 @@ export function useTerminalWs({
     if (ws && ws.readyState === WebSocket.OPEN) {
       const json = JSON.stringify({ cols, rows });
       const payload = new Uint8Array(1 + json.length);
-      payload[0] = 0x01; // resize prefix
+      payload[0] = 0x01;
       for (let i = 0; i < json.length; i++) {
         payload[i + 1] = json.charCodeAt(i);
       }
