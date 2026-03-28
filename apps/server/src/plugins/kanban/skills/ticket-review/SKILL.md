@@ -12,7 +12,7 @@ When a ticket reaches `reviewing` status, perform a thorough code review.
 
 ```bash
 # Read ticket details (extract branchName from response)
-TICKET=$(curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER")
+TICKET=$(curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER")
 BRANCH_NAME=$(echo "$TICKET" | jq -r '.branchName')
 
 # View the diff against base branch
@@ -54,7 +54,8 @@ If the code passes review, **ask the human for confirmation before merging**:
 After human confirms:
 
 ```bash
-curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/merge"
+curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/merge" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN"
 ```
 
 #### Reject
@@ -63,6 +64,7 @@ If the code needs work, send it back with a clear explanation:
 
 ```bash
 curl -s -X PATCH "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "in_progress"}'
 ```
@@ -71,6 +73,7 @@ The Ticket CC will be automatically restarted with `--resume`. Send it guidance 
 
 ```bash
 curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc/messages" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"content": "[KANBAN] Review feedback: <specific issues to fix>"}'
 ```

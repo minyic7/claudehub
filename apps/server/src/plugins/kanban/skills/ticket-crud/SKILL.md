@@ -10,6 +10,7 @@ You can manage tickets through the ClaudeHub REST API. All requests use JSON bod
 
 ```bash
 curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Short descriptive title",
@@ -29,6 +30,7 @@ curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets" \
 
 ```bash
 curl -s -X PATCH "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Updated description",
@@ -63,7 +65,8 @@ Write a detailed task brief when moving a ticket to `in_progress`. This becomes 
 ## Delete Ticket
 
 ```bash
-curl -s -X DELETE "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER"
+curl -s -X DELETE "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN"
 ```
 
 If other tickets depend on this one, returns 409 with dependent list. Use `?cascade=true` to delete dependents too.
@@ -71,7 +74,8 @@ If other tickets depend on this one, returns 409 with dependent list. Use `?casc
 ## Merge Ticket
 
 ```bash
-curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/merge"
+curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/merge" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN"
 ```
 
 Prerequisites: status=reviewing, CI passed, no active merge, all dependencies merged.
@@ -80,15 +84,15 @@ Returns 202 (async). Creates PR with "Closes #N", squash merges, waits for CD.
 ## List Tickets
 
 ```bash
-curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets"
-curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets?status=in_progress"
-curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets?priority=1"
+curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/tickets"
+curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/tickets?status=in_progress"
+curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/tickets?priority=1"
 ```
 
 ## View Board
 
 ```bash
-curl -s "$API_BASE/api/projects/$PROJECT_ID/board"
+curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/board"
 ```
 
 Returns columns (todo, in_progress, reviewing, merged) with tickets sorted by priority.

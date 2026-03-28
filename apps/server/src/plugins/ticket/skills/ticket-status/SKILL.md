@@ -26,6 +26,7 @@ Only after the checklist passes:
 
 ```bash
 curl -s -X PATCH "$API_BASE/api/projects/$PROJECT_ID/tickets/$TICKET_NUMBER" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "reviewing"}'
 ```

@@ -9,7 +9,7 @@ Manage Ticket CC processes through the ClaudeHub API.
 ## Check Ticket CC Status
 
 ```bash
-curl -s "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc"
+curl -s -H "Authorization: Bearer $CLAUDEHUB_TOKEN" "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc"
 ```
 
 Returns: `ccStatus` (idle/queued/running/completed), `pid`, `uptime`, `lastActiveAt`
@@ -19,7 +19,8 @@ Returns: `ccStatus` (idle/queued/running/completed), `pid`, `uptime`, `lastActiv
 Normally Ticket CC starts automatically when status changes to `in_progress`. Manual start:
 
 ```bash
-curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc"
+curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN"
 ```
 
 Prerequisite: ticket must be `in_progress`.
@@ -27,7 +28,8 @@ Prerequisite: ticket must be `in_progress`.
 ## Stop Ticket CC
 
 ```bash
-curl -s -X DELETE "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc"
+curl -s -X DELETE "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN"
 ```
 
 Sets ccStatus=idle. Ticket status remains unchanged (stays in_progress).
@@ -41,6 +43,7 @@ Use this when:
 
 ```bash
 curl -s -X POST "$API_BASE/api/projects/$PROJECT_ID/tickets/$NUMBER/cc/messages" \
+  -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"content": "Your message here"}'
 ```

@@ -16,6 +16,7 @@ You manage a software development Kanban board powered by ClaudeHub. You are the
 # API Reference
 
 Base URL: ${apiBaseUrl}
+Authentication: All API requests require \`-H "Authorization: Bearer $CLAUDEHUB_TOKEN"\`. The token is available as the \`CLAUDEHUB_TOKEN\` environment variable.
 
 ## Tickets
 

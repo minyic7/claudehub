@@ -37,9 +37,14 @@ Follow this sequence strictly:
 9. **Submit** — Set status to reviewing:
    \`\`\`bash
    curl -s -X PATCH "${api}/api/projects/${projectId}/tickets/${ticketNumber}" \\
+     -H "Authorization: Bearer $CLAUDEHUB_TOKEN" \\
      -H "Content-Type: application/json" \\
      -d '{"status": "reviewing"}'
    \`\`\`
+
+# API Authentication
+
+All API requests require \`-H "Authorization: Bearer $CLAUDEHUB_TOKEN"\`. The token is available as the \`CLAUDEHUB_TOKEN\` environment variable.
 
 # Rules
 

@@ -16,6 +16,7 @@ import {
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
+import { generateServiceToken } from "../../lib/auth.js";
 
 const CLAUDE_BIN = "claude";
 const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
@@ -182,6 +183,7 @@ export async function startKanbanCC(
     PROJECT_ID: projectId,
     BASE_BRANCH: project?.baseBranch || "main",
     WORKTREE_PATH: worktreePath,
+    CLAUDEHUB_TOKEN: generateServiceToken(),
   };
 
   ensureTrusted(worktreePath);
@@ -346,6 +348,7 @@ async function doStartTicketCC(
     TICKET_NUMBER: String(ticket.number),
     BASE_BRANCH: project?.baseBranch || "main",
     WORKTREE_PATH: ticket.worktreePath,
+    CLAUDEHUB_TOKEN: generateServiceToken(),
   };
 
   ensureTrusted(ticket.worktreePath);

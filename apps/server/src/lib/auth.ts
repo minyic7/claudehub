@@ -12,6 +12,11 @@ export function generateToken(username: string): string {
   return jwt.sign({ username }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 }
 
+/** Generate a long-lived service token for CC processes (no expiry) */
+export function generateServiceToken(): string {
+  return jwt.sign({ username: "admin", service: true }, JWT_SECRET);
+}
+
 export function verifyToken(token: string): { username: string } | null {
   try {
     return jwt.verify(token, JWT_SECRET) as { username: string };
