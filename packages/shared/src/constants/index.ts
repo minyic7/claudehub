@@ -18,4 +18,4 @@ export const TICKET_TYPES = [
 export const MAX_TITLE_LENGTH = 72;
 export const TITLE_PATTERN = /^[a-zA-Z0-9 -]+$/;
 
-export const DEFAULT_MAX_CONCURRENT_TICKETS = 20;
+export const DEFAULT_MAX_CONCURRENT_TICKETS = 3;

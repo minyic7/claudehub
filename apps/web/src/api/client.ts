@@ -94,17 +94,6 @@ export const api = {
   updateSettings: (data: UpdateSettingsInput) =>
     request<SettingsResponse>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
 
-  // Claude Login (OAuth via terminal)
-  startClaudeLogin: (cols?: number, rows?: number) =>
-    request<{ status: string; pid: number }>("/claude-login", {
-      method: "POST",
-      body: JSON.stringify({ cols, rows }),
-    }),
-  getClaudeLogin: () =>
-    request<{ running: boolean }>("/claude-login"),
-  stopClaudeLogin: () =>
-    request<void>("/claude-login", { method: "DELETE" }),
-
   // Auth
   login: (username: string, password: string) =>
     request<{ token: string }>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),

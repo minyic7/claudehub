@@ -13,7 +13,6 @@ import { ticketCC } from "./routes/ticketCC.js";
 import { settings } from "./routes/settings.js";
 import { webhooks } from "./routes/webhooks.js";
 import { createWsRoutes } from "./routes/ws.js";
-import { claudeLogin } from "./routes/claudeLogin.js";
 import { recoverOnStartup, shutdownAll } from "./services/cc/manager.js";
 import { redis } from "./services/redis.js";
 
@@ -36,7 +35,6 @@ app.route("/api/auth", auth);
 app.route("/api/projects", projects);
 app.route("/api/settings", settings);
 app.route("/api/webhooks", webhooks);
-app.route("/api/claude-login", claudeLogin);
 
 // Nested routes (project-scoped)
 const projectScoped = new Hono();

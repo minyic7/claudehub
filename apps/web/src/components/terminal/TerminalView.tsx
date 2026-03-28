@@ -5,7 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useTerminalWs } from "../../hooks/useTerminalWs.js";
 
 interface TerminalViewProps {
-  type: "kanban" | "ticket" | "login";
+  type: "kanban" | "ticket";
   projectId: string;
   ticketNumber?: number;
   onExit?: () => void;

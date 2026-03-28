@@ -5,11 +5,12 @@ import { buildKanbanSystemPrompt } from "../services/cc/kanbanCC.js";
 import * as git from "../services/git/worktree.js";
 import { getPTY } from "../lib/pty.js";
 
-export const kanbanCC = new Hono();
+export const kanbanCC = new Hono<{ Variables: { username: string } }>();
 
 // POST /api/projects/:projectId/kanban-cc
 kanbanCC.post("/", async (c) => {
   const projectId = c.req.param("projectId")!;
+  const username = c.get("username") as string;
   const project = await db.getProject(projectId);
   if (!project) return c.json({ error: "Project not found" }, 404);
 
@@ -21,6 +22,13 @@ kanbanCC.post("/", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   if (body.apiKey) {
     await db.updateSettings({ anthropicApiKey: body.apiKey });
+  }
+
+  // Non-admin users must provide an API key
+  const settings = await db.getSettings();
+  const apiKey = body.apiKey || settings.anthropicApiKey;
+  if (username !== "admin" && !apiKey) {
+    return c.json({ error: "API key required for non-admin users" }, 403);
   }
 
   // Ensure kanban worktree exists
@@ -39,10 +47,8 @@ kanbanCC.post("/", async (c) => {
   const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
   const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl);
 
-  // Use apiKey from body or fall back to Redis
-  const settings = await db.getSettings();
+  // Admin uses mounted credential; non-admin uses API key
   const env: Record<string, string> = {};
-  const apiKey = body.apiKey || settings.anthropicApiKey;
   if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
 
   try {

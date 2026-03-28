@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { api } from "../api/client.js";
 import { useBoardStore } from "../stores/boardStore.js";
-import { getApiKey } from "../lib/utils.js";
+import { getApiKey, isAdmin } from "../lib/utils.js";
 
 export function useAutoStartKanbanCC(projectId: string | undefined) {
   useEffect(() => {
@@ -12,10 +12,10 @@ export function useAutoStartKanbanCC(projectId: string | undefined) {
         const info = await api.getKanbanCC(projectId!);
         useBoardStore.setState({ kanbanCCStatus: info.status });
         if (info.status === "stopped") {
-          // Only auto-start if we have an API key; otherwise user needs
-          // to login via the terminal or set a key in Settings first
+          // Admin can auto-start without API key (uses mounted credential)
+          // Non-admin needs an API key
           const apiKey = getApiKey();
-          if (!apiKey) return;
+          if (!isAdmin() && !apiKey) return;
           try {
             await api.startKanbanCC(projectId!, apiKey);
             useBoardStore.setState({ kanbanCCStatus: "running" });

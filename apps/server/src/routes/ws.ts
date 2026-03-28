@@ -174,55 +174,5 @@ export function createWsRoutes(upgradeWebSocket: UpgradeWebSocket) {
     }),
   );
 
-  // Terminal channel: /api/ws/terminal/login?token=xxx
-  app.get(
-    "/terminal/login",
-    upgradeWebSocket((c) => {
-      const token = c.req.query("token");
-
-      return {
-        onOpen(_event, ws) {
-          if (!token || !verifyToken(token)) {
-            ws.close(1008, "Unauthorized");
-            return;
-          }
-
-          const key = "login";
-          const pty = getPTY(key);
-          if (!pty) {
-            ws.close(1011, "Login session not running");
-            return;
-          }
-
-          const rawWs = ws.raw as unknown as import("ws").WebSocket;
-          addTerminalClient(key, rawWs, "login", "__login__");
-
-          const history = pty.ringBuffer.getHistory();
-          if (history.length > 0) {
-            ws.send(new Uint8Array(history));
-          }
-        },
-        onMessage(event, ws) {
-          const key = "login";
-          const resize = parseResize(event.data);
-          if (resize) {
-            resizePTY(key, resize.cols, resize.rows);
-            return;
-          }
-          const pty = getPTY(key);
-          if (pty) {
-            const data = typeof event.data === "string"
-              ? event.data
-              : new TextDecoder().decode(event.data as ArrayBuffer);
-            pty.pty.write(data);
-          }
-        },
-        onClose(_event, ws) {
-          removeTerminalClient("login", ws.raw as unknown as import("ws").WebSocket, "__login__");
-        },
-      };
-    }),
-  );
-
   return app;
 }

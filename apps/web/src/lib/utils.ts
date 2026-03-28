@@ -26,6 +26,18 @@ export function clearApiKey(): void {
   localStorage.removeItem(API_KEY_STORAGE);
 }
 
+// Check if current user is admin by decoding JWT payload
+export function isAdmin(): boolean {
+  const token = localStorage.getItem("token");
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.username === "admin";
+  } catch {
+    return false;
+  }
+}
+
 // Generate a stable connection ID per browser tab for operator lock
 const CONNECTION_ID_KEY = "claudehub:connectionId";
 export function getConnectionId(): string {

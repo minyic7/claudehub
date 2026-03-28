@@ -17,7 +17,6 @@ import os from "node:os";
 
 const CLAUDE_BIN = "claude";
 const API_BASE = `http://localhost:${process.env.PORT || 7700}`;
-const LOGIN_KEY = "login";
 
 const MAX_RESTART_ATTEMPTS = 5;
 const INITIAL_RESTART_DELAY_MS = 2000;
@@ -26,6 +25,8 @@ const INITIAL_RESTART_DELAY_MS = 2000;
 const restartAttempts = new Map<string, number>();
 // Track manually stopped CCs to prevent auto-restart after kill
 const manuallyStopped = new Set<string>();
+// Single-project CC limit: only one project can have running CCs at a time
+let activeProjectId: string | null = null;
 
 function getRestartDelay(key: string): number | null {
   const attempts = (restartAttempts.get(key) || 0) + 1;
@@ -52,7 +53,54 @@ export function shutdownAll(): void {
   for (const key of keys) {
     killPTY(key);
   }
+  activeProjectId = null;
   console.log(`Shut down ${keys.length} CC processes`);
+}
+
+/** Stop all CCs (kanban + tickets) for a given project */
+async function stopAllProjectCCs(projectId: string): Promise<void> {
+  // Stop kanban CC
+  if (isKanbanCCRunning(projectId)) {
+    await stopKanbanCC(projectId);
+  }
+
+  // Stop all ticket CCs for this project
+  const keys = getAllPTYKeys();
+  const prefix = `ticket:${projectId}:`;
+  for (const key of keys) {
+    if (key.startsWith(prefix)) {
+      const number = Number(key.slice(prefix.length));
+      await stopTicketCC(projectId, number);
+    }
+  }
+
+  // Clear queued tickets for this project
+  const queued = await db.getQueuedItems();
+  for (const item of queued) {
+    const [qProjectId, numStr] = item.split(":");
+    if (qProjectId === projectId) {
+      const num = Number(numStr);
+      await db.removeFromQueue(projectId, num);
+      await db.updateTicket(projectId, num, { ccStatus: "idle" });
+      await db.setTicketCCStatus(projectId, num, {
+        ccStatus: "idle",
+        lastActiveAt: new Date().toISOString(),
+      });
+    }
+  }
+}
+
+/** Ensure single-project limit: stop previous project's CCs if switching */
+async function ensureSingleProject(projectId: string): Promise<void> {
+  if (activeProjectId && activeProjectId !== projectId) {
+    console.log(`Switching active project from ${activeProjectId} to ${projectId}, stopping previous CCs...`);
+    await stopAllProjectCCs(activeProjectId);
+  }
+  activeProjectId = projectId;
+}
+
+export function getActiveProjectId(): string | null {
+  return activeProjectId;
 }
 
 // ── Kanban CC ──
@@ -64,6 +112,9 @@ export async function startKanbanCC(
   env?: Record<string, string>,
   options?: { pluginDir?: string; mcpConfig?: string; resume?: boolean },
 ): Promise<{ pid: number }> {
+  // Single-project limit: stop previous project's CCs if different
+  await ensureSingleProject(projectId);
+
   const key = `kanban:${projectId}`;
   manuallyStopped.delete(key);
   const existing = getPTY(key);
@@ -194,6 +245,9 @@ export async function startTicketCC(
   systemPrompt: string,
   env?: Record<string, string>,
 ): Promise<{ pid: number; queued: boolean }> {
+  // Single-project limit: stop previous project's CCs if different
+  await ensureSingleProject(projectId);
+
   const settings = await db.getSettings();
   const runningCount = await db.getRunningCount();
 
@@ -519,38 +573,3 @@ export async function recoverOnStartup(): Promise<void> {
   await scheduleNext();
 }
 
-// ── Login PTY (bare claude for OAuth login) ──
-
-export function startLoginPTY(cols?: number, rows?: number): { pid: number } {
-  const existing = getPTY(LOGIN_KEY);
-  if (existing) {
-    throw new Error("Login session already running");
-  }
-
-  const instance = spawnPTY(
-    LOGIN_KEY,
-    CLAUDE_BIN,
-    [],
-    os.homedir(),
-    undefined,
-    (data) => {
-      broadcastTerminalOutput(LOGIN_KEY, data);
-    },
-    (_code) => {
-      console.log("Login PTY exited");
-      // Broadcast exit so frontend knows to stop reconnecting
-      broadcastEvent("kanban_cc:status_changed", "__login__", { status: "stopped" });
-    },
-    { cols, rows },
-  );
-
-  return { pid: instance.pid };
-}
-
-export function stopLoginPTY(): void {
-  killPTY(LOGIN_KEY);
-}
-
-export function isLoginPTYRunning(): boolean {
-  return !!getPTY(LOGIN_KEY);
-}

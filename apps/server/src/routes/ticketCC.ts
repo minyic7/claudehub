@@ -4,7 +4,7 @@ import * as ccManager from "../services/cc/manager.js";
 import { buildTicketSystemPrompt } from "../services/cc/ticketCC.js";
 import { getPTY } from "../lib/pty.js";
 
-export const ticketCC = new Hono();
+export const ticketCC = new Hono<{ Variables: { username: string } }>();
 
 // POST /api/projects/:projectId/tickets/:number/cc
 ticketCC.post("/", async (c) => {
@@ -29,6 +29,8 @@ ticketCC.post("/", async (c) => {
     apiBaseUrl, project?.baseBranch,
   );
 
+  const username = c.get("username") as string;
+
   // Accept apiKey from body (frontend localStorage) and persist to Redis
   const body = await c.req.json().catch(() => ({}));
   if (body.apiKey) {
@@ -36,8 +38,15 @@ ticketCC.post("/", async (c) => {
   }
 
   const settings = await db.getSettings();
-  const env: Record<string, string> = {};
   const apiKey = body.apiKey || settings.anthropicApiKey;
+
+  // Non-admin users must provide an API key
+  if (username !== "admin" && !apiKey) {
+    return c.json({ error: "API key required for non-admin users" }, 403);
+  }
+
+  // Admin uses mounted credential; non-admin uses API key
+  const env: Record<string, string> = {};
   if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
 
   try {

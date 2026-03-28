@@ -6,18 +6,6 @@ import { getApiKey } from "../../lib/utils.js";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
-// Estimate terminal cols/rows from a container element
-function estimateTermSize(el: HTMLElement): { cols: number; rows: number } {
-  // Menlo at 13px: ~7.8px per char, default line-height ~1.2 = ~15.6px per row
-  const charWidth = 7.8;
-  const charHeight = 13 * 1.2;
-  const rect = el.getBoundingClientRect();
-  return {
-    cols: Math.max(20, Math.floor(rect.width / charWidth)),
-    rows: Math.max(5, Math.floor(rect.height / charHeight)),
-  };
-}
-
 const MIN_WIDTH = 300;
 const MAX_WIDTH_RATIO = 0.7;
 const DEFAULT_WIDTH = 420;
@@ -43,10 +31,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const switchTab = useTerminalStore((s) => s.switchTab);
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
 
-  const [loginRunning, setLoginRunning] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const termAreaRef = useRef<HTMLDivElement>(null);
-
   const [width, setWidth] = useState(loadWidth);
   const draggingRef = useRef(false);
 
@@ -61,7 +45,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
 
     const onMove = (ev: MouseEvent) => {
       if (!draggingRef.current) return;
-      // Dragging left border: moving mouse left = wider panel
       const delta = startX - ev.clientX;
       const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta));
       setWidth(next);
@@ -72,7 +55,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      // persist
       setWidth((w) => {
         localStorage.setItem(STORAGE_KEY, String(Math.round(w)));
         return w;
@@ -83,32 +65,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, [width]);
-
-  const handleStartLogin = async () => {
-    setLoginLoading(true);
-    try {
-      // Measure the terminal area to pass correct dimensions
-      let cols: number | undefined;
-      let rows: number | undefined;
-      if (termAreaRef.current) {
-        const size = estimateTermSize(termAreaRef.current);
-        cols = size.cols;
-        rows = size.rows;
-      }
-      await api.startClaudeLogin(cols, rows);
-      setLoginRunning(true);
-    } catch {
-      // 409 = already running
-      setLoginRunning(true);
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleStopLogin = async () => {
-    await api.stopClaudeLogin();
-    setLoginRunning(false);
-  };
 
   const [ccLoading, setCcLoading] = useState(false);
 
@@ -196,7 +152,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
 
       {/* Terminal area */}
       {activeTab === "kanban" && (
-        <div ref={termAreaRef} className="flex-1 overflow-hidden flex">
+        <div className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex items-center justify-end gap-2 px-3 py-1 border-b border-border-default">
@@ -219,28 +175,6 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                 <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
               </div>
             </div>
-          ) : loginRunning ? (
-            <div className="flex-1 flex flex-col">
-              <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-default">
-                <span className="font-pixel text-[7px] text-text-muted">
-                  CLAUDE LOGIN SESSION
-                </span>
-                <button
-                  onClick={handleStopLogin}
-                  className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer"
-                >
-                  CLOSE
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden flex">
-                <TerminalView
-                  type="login"
-                  projectId={projectId}
-                  onExit={() => setLoginRunning(false)}
-                  panelWidth={width}
-                />
-              </div>
-            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
               <div className="w-full h-[120px]">
@@ -249,22 +183,13 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               <span className="font-pixel text-[8px] text-text-muted">
                 KANBAN CC {kanbanCCStatus.toUpperCase()}
               </span>
-              <div className="flex flex-col items-center gap-2">
-                <button
-                  onClick={handleStartKanbanCC}
-                  disabled={ccLoading}
-                  className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
-                >
-                  {ccLoading ? "STARTING..." : "START KANBAN CC"}
-                </button>
-                <button
-                  onClick={handleStartLogin}
-                  disabled={loginLoading}
-                  className="font-pixel text-[7px] text-text-muted hover:text-text-secondary cursor-pointer disabled:opacity-50"
-                >
-                  {loginLoading ? "STARTING..." : "CLAUDE LOGIN"}
-                </button>
-              </div>
+              <button
+                onClick={handleStartKanbanCC}
+                disabled={ccLoading}
+                className="font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
+              >
+                {ccLoading ? "STARTING..." : "START KANBAN CC"}
+              </button>
             </div>
           )}
         </div>
