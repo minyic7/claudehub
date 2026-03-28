@@ -225,10 +225,13 @@ export async function startKanbanCC(
     "--dangerously-skip-permissions",
   ];
   // Session resume strategy: explicit sessionId > auto-detect > fresh start
+  let willResume = false;
   if (options?.sessionId) {
     args.push("--resume", options.sessionId);
+    willResume = true;
   } else if (options?.resume || hasExistingSession(worktreePath)) {
     args.push("--continue");
+    willResume = true;
   }
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
@@ -394,10 +397,13 @@ async function doStartTicketCC(
     "--dangerously-skip-permissions",
   ];
   // Session resume strategy: explicit sessionId > auto-detect > fresh start
+  let willResume = false;
   if (options?.sessionId) {
     args.push("--resume", options.sessionId);
+    willResume = true;
   } else if (options?.resume || hasExistingSession(ticket.worktreePath)) {
     args.push("--continue");
+    willResume = true;
   }
   if (pluginDir) args.push("--plugin-dir", pluginDir);
   if (options?.mcpConfig) args.push("--mcp-config", options.mcpConfig);
@@ -495,6 +501,15 @@ async function doStartTicketCC(
     number: ticket.number,
     ccStatus: "running",
   });
+
+  // For fresh sessions (no --continue/--resume), Claude CLI waits for user input.
+  // Send the task brief as initial prompt so Ticket CC starts working automatically.
+  if (!willResume) {
+    setTimeout(() => {
+      const brief = ticket.taskBrief || `Work on ticket #${ticket.number}: ${ticket.title}\n\n${ticket.description}`;
+      writeToPTY(key, brief + "\n");
+    }, 2000); // Wait for CLI to initialize
+  }
 
   return { pid: instance.pid, queued: false };
 }
