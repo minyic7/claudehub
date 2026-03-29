@@ -26,7 +26,7 @@ interface BoardStore {
   handleTicketUpdated: (data: { number: number; changes: Partial<Ticket> }) => void;
   handleTicketDeleted: (data: { number: number }) => void;
   handleStatusChanged: (data: { number: number; from?: string; to?: string; ccStatus?: string }) => void;
-  handleMergeProgress: (data: { number: number; step: string }) => void;
+  handleMergeProgress: (data: { number: number; status: string; error?: string }) => void;
   handleRebaseEvent: (data: { number: number; event: string }) => void;
   handleCICompleted: (data: { number: number; passed: boolean }) => void;
   handleCDEvent: (data: { event: string; passed?: boolean }) => void;
@@ -194,9 +194,23 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   handleMergeProgress: (data) => {
-    set((state) => ({
-      columns: updateTicketInColumns(state.columns, data.number, { mergeStep: data.step }),
-    }));
+    set((state) => {
+      if (data.status === "merged") {
+        // Move ticket from reviewing → merged
+        const { ticket, columns: withoutTicket } = findAndRemoveTicket(state.columns, data.number);
+        if (!ticket) return state;
+        const movedTicket = { ...ticket, status: "merged" as TicketStatus, mergeStep: undefined };
+        const columns = withoutTicket.map((col) =>
+          col.status === "merged"
+            ? { ...col, tickets: [...col.tickets, movedTicket].sort((a, b) => a.priority - b.priority) }
+            : col,
+        );
+        return { columns, stats: recalcStats(columns) };
+      }
+      return {
+        columns: updateTicketInColumns(state.columns, data.number, { mergeStep: data.status }),
+      };
+    });
   },
 
   handleRebaseEvent: (_data) => {

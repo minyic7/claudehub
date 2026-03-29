@@ -650,7 +650,10 @@ async function doMerge(
   );
 
   // Wait for CD on base branch — only if repo has workflows configured
-  const hasCd = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+  // Check both base branch and the feature branch (in case this merge introduced workflows)
+  const hasCd =
+    await github.hasWorkflows(project.githubToken, project.owner, project.repo) ||
+    await github.hasWorkflows(project.githubToken, project.owner, project.repo, ticket.branchName);
   if (hasCd) {
     broadcastEvent("merge:progress", projectId, { number, status: "waiting_cd" });
     await db.setMergeProgress(projectId, number, "waiting_cd");
