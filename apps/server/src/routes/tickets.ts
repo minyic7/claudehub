@@ -544,17 +544,20 @@ tickets.post("/:number/merge", async (c) => {
   const project = await db.getProject(projectId);
   if (!project) return c.json({ error: "Project not found" }, 404);
 
-  // Check CI
+  // Check CI — only if repo has workflow files
   try {
-    const ci = await github.getCIStatus(
-      project.githubToken, project.owner, project.repo, ticket.branchName,
-    );
-    if (!ci.passed) {
-      return c.json({
-        error: ci.pending
-          ? "CI checks still running"
-          : `CI checks failed: ${ci.details}`,
-      }, 400);
+    const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+    if (hasCI) {
+      const ci = await github.getCIStatus(
+        project.githubToken, project.owner, project.repo, ticket.branchName,
+      );
+      if (!ci.passed) {
+        return c.json({
+          error: ci.pending
+            ? "CI checks still running"
+            : `CI checks failed: ${ci.details}`,
+        }, 400);
+      }
     }
   } catch (err) {
     console.warn("Failed to check CI status before merge:", err);
