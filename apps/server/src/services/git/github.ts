@@ -85,8 +85,10 @@ export async function getCIStatus(
     (cr) => cr.conclusion === "success" || cr.conclusion === "skipped",
   );
   const allStatusesPassed = status.state === "success" || status.statuses.length === 0;
+  // Only consider commit statuses as pending if there are actual statuses reported
+  const statusPending = status.statuses.length > 0 && status.state === "pending";
   const anyPending =
-    status.state === "pending" ||
+    statusPending ||
     checkRuns.check_runs.some((cr) => cr.status !== "completed");
 
   if (anyPending) {
