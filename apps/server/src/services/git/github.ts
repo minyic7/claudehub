@@ -255,6 +255,28 @@ export async function createPullRequest(
   return data.number;
 }
 
+export async function updatePullRequestBranch(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<void> {
+  const octokit = getClient(token);
+  try {
+    await octokit.pulls.updateBranch({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+    // Wait a moment for GitHub to process the update
+    await new Promise((r) => setTimeout(r, 3000));
+  } catch (err: unknown) {
+    // 422 = branch already up to date, that's fine
+    if (err instanceof Error && "status" in err && (err as { status: number }).status === 422) return;
+    throw err;
+  }
+}
+
 export async function mergePullRequest(
   token: string,
   owner: string,

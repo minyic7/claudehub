@@ -629,6 +629,14 @@ async function doMerge(
   broadcastEvent("merge:progress", projectId, { number, status: "merging", prNumber });
   await db.setMergeProgress(projectId, number, "merging", { prNumber });
 
+  // Update PR branch to be in sync with base before merging
+  await github.updatePullRequestBranch(
+    project.githubToken,
+    project.owner,
+    project.repo,
+    prNumber,
+  );
+
   // Merge PR
   await github.mergePullRequest(
     project.githubToken,
