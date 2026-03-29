@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import * as db from "../services/redis.js";
 import * as ccManager from "../services/cc/manager.js";
 import { buildKanbanSystemPrompt } from "../services/cc/kanbanCC.js";
+import { startPilot, stopPilot, getPilotStatus } from "../services/cc/pilot.js";
 import * as git from "../services/git/worktree.js";
 import { getPTY } from "../lib/pty.js";
 
@@ -117,6 +118,39 @@ kanbanCC.delete("/", async (c) => {
   const projectId = c.req.param("projectId")!;
   await ccManager.stopKanbanCC(projectId);
   return c.json({ status: "stopped" });
+});
+
+// POST /api/projects/:projectId/kanban-cc/pilot
+kanbanCC.post("/pilot", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const body = await c.req.json<{ goal: string; minInterval?: number; maxInterval?: number }>();
+
+  if (!body.goal) return c.json({ error: "goal required" }, 400);
+  if (!ccManager.isKanbanCCRunning(projectId)) {
+    return c.json({ error: "Kanban CC not running" }, 400);
+  }
+
+  startPilot(
+    projectId,
+    body.goal,
+    body.minInterval ?? 30,
+    body.maxInterval ?? 120,
+  );
+
+  return c.json({ active: true }, 201);
+});
+
+// DELETE /api/projects/:projectId/kanban-cc/pilot
+kanbanCC.delete("/pilot", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  stopPilot(projectId);
+  return c.json({ active: false });
+});
+
+// GET /api/projects/:projectId/kanban-cc/pilot
+kanbanCC.get("/pilot", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  return c.json(getPilotStatus(projectId));
 });
 
 // POST /api/projects/:projectId/kanban-cc/messages

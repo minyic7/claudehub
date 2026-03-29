@@ -9,6 +9,7 @@ interface BoardStore {
   columns: BoardColumn[];
   stats: BoardStats;
   kanbanCCStatus: "running" | "stopped" | "error";
+  pilotActive: boolean;
   operatorConnectionId: string | null;
   loading: boolean;
 
@@ -31,6 +32,7 @@ interface BoardStore {
   handleCDEvent: (data: { event: string; passed?: boolean }) => void;
   handleKanbanCCStatus: (data: { status: string }) => void;
   handleOperatorChanged: (data: { operatorConnectionId: string | null }) => void;
+  handlePilotStatus: (data: { active: boolean }) => void;
 }
 
 function findAndRemoveTicket(columns: BoardColumn[], number: number): { ticket: Ticket | null; columns: BoardColumn[] } {
@@ -73,6 +75,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   columns: [],
   stats: { total: 0, byStatus: {} as Record<TicketStatus, number>, runningCC: 0, queuedCC: 0 },
   kanbanCCStatus: "stopped",
+  pilotActive: false,
   operatorConnectionId: null,
   loading: false,
 
@@ -216,5 +219,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   handleOperatorChanged: (data) => {
     set({ operatorConnectionId: data.operatorConnectionId });
+  },
+
+  handlePilotStatus: (data) => {
+    set({ pilotActive: data.active });
   },
 }));

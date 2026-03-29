@@ -87,6 +87,17 @@ export const api = {
   deleteKanbanCCSession: (projectId: string, sessionId: string) =>
     request<void>(`/projects/${projectId}/kanban-cc/sessions/${sessionId}`, { method: "DELETE" }),
 
+  // Pilot Mode
+  startPilot: (projectId: string, goal: string, minInterval?: number, maxInterval?: number) =>
+    request<{ active: boolean }>(`/projects/${projectId}/kanban-cc/pilot`, {
+      method: "POST",
+      body: JSON.stringify({ goal, minInterval, maxInterval }),
+    }),
+  stopPilot: (projectId: string) =>
+    request<{ active: boolean }>(`/projects/${projectId}/kanban-cc/pilot`, { method: "DELETE" }),
+  getPilotStatus: (projectId: string) =>
+    request<{ active: boolean; goal?: string; minInterval?: number; maxInterval?: number }>(`/projects/${projectId}/kanban-cc/pilot`),
+
   // Ticket CC
   startTicketCC: (projectId: string, number: number, opts?: { apiKey?: string | null; sessionId?: string }) =>
     request<void>(`/projects/${projectId}/tickets/${number}/cc`, {

@@ -77,6 +77,9 @@ export function useEventWs(projectId: string | undefined) {
             case "operator:changed":
               store.handleOperatorChanged(d as Parameters<typeof store.handleOperatorChanged>[0]);
               break;
+            case "pilot:status_changed":
+              store.handlePilotStatus(d as { active: boolean });
+              break;
           }
         } catch {
           // ignore malformed messages

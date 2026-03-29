@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>claude-hub · 🐱</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+  --px: 'Press Start 2P', monospace;
+
+  /* Base */
+  --bg:       #080808;
+  --fur:      #0E0E0E;
+  --fur2:     #141414;
+  --surface:  #101010;
+  --panel:    #0A0A0A;
+  --card:     #161616;
+  --card-ho:  #1C1C1C;
+
+  /* Borders */
+  --b1:  #1E1E1E;
+  --b2:  #282828;
+  --b3:  #323232;
+
+  /* White accent */
+  --w:   #F0F0F0;
+  --w2:  #C0C0C0;
+  --w3:  rgba(240,240,240,0.07);
+  --w4:  rgba(240,240,240,0.03);
+
+  /* Orange-yellow 点缀 only */
+  --am:  #E8941C;
+  --am2: rgba(232,148,28,0.12);
+
+  /* Column-specific subtle tints */
+  --col-backlog:   #0C0C0E;
+  --col-active:    #0E0E10;  /* fractionally lighter */
+  --col-review:    #0C0C0C;
+  --col-done:      #0A0A0A;
+
+  /* Status colors */
+  --ok:   #5ED490;
+  --ok2:  rgba(94,212,144,0.1);
+  --warn: #E8C040;
+  --err:  #E06060;
+  --info: #70B8F0;
+
+  /* Text */
+  --t1:  #E8E8E8;
+  --t2:  #808080;
+  --t3:  #404040;
+  --t4:  #2A2A2A;
+
+  /* Tag palette — semantic, not decorative */
+  --tag-type:  rgba(112,184,240,0.15);   /* type/domain = blue */
+  --tag-type-c: #80C0F0;
+  --tag-type-b: rgba(112,184,240,0.3);
+
+  --tag-prio:  rgba(232,148,28,0.13);    /* priority/effort = amber */
+  --tag-prio-c: #E0A060;
+  --tag-prio-b: rgba(232,148,28,0.28);
+
+  --tag-stat:  rgba(94,212,144,0.12);    /* status/done = green */
+  --tag-stat-c: #70C890;
+  --tag-stat-b: rgba(94,212,144,0.25);
+
+  --tag-warn:  rgba(224,96,96,0.13);     /* blocker = red */
+  --tag-warn-c: #E08080;
+  --tag-warn-b: rgba(224,96,96,0.28);
+
+  --tag-done:  rgba(40,40,40,0.6);
+  --tag-done-c: #505050;
+  --tag-done-b: #2A2A2A;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+html, body { width:100%; height:100%; overflow:hidden; font-family:var(--px); background:var(--bg); color:var(--t1); }
+
+/* scanline */
+body::before {
+  content:''; position:fixed; inset:0; z-index:9999; pointer-events:none;
+  background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 3px);
+}
+/* paw bg */
+body::after {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.022;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Ccircle cx='24' cy='32' r='8' fill='white'/%3E%3Cellipse cx='12' cy='20' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='24' cy='15' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='36' cy='18' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='43' cy='28' rx='5' ry='6' fill='white'/%3E%3Ccircle cx='72' cy='76' r='8' fill='white'/%3E%3Cellipse cx='60' cy='64' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='72' cy='59' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='84' cy='62' rx='5' ry='6' fill='white'/%3E%3Cellipse cx='91' cy='72' rx='5' ry='6' fill='white'/%3E%3C/svg%3E");
+  background-size: 96px 96px;
+}
+
+.shell { position:relative; z-index:10; height:100vh; display:flex; flex-direction:column; }
+
+/* ══════════════════ TOPBAR ══════════════════ */
+.topbar {
+  height:48px; flex-shrink:0;
+  background:var(--fur); border-bottom:2px solid var(--b1);
+  box-shadow: 0 2px 0 var(--b2), 0 4px 16px rgba(0,0,0,0.5);
+  display:flex; align-items:center; padding:0 16px; gap:0; position:relative;
+}
+.topbar::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(240,240,240,0.12) 30%, rgba(240,240,240,0.2) 50%, rgba(240,240,240,0.12) 70%, transparent);
+}
+
+.logo { display:flex; align-items:center; gap:9px; margin-right:20px; }
+.logo-name { font-size:7px; color:var(--w); letter-spacing:0.04em; }
+.logo-name .dot { color:var(--am); }
+
+.nav { display:flex; }
+.nav-item {
+  height:48px; padding:0 13px;
+  display:flex; align-items:center;
+  font-size:6px; color:var(--t3); cursor:pointer;
+  border-right:1px solid var(--b1); letter-spacing:0.04em;
+  transition:all 0.1s; position:relative;
+}
+.nav-item:first-child { border-left:1px solid var(--b1); }
+.nav-item:hover { color:var(--t2); background:var(--w4); }
+.nav-item.active { color:var(--w); background:var(--w3); }
+.nav-item.active::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--w);
+}
+
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+
+.agent-pill {
+  display:flex; align-items:center; gap:6px; padding:4px 10px;
+  border:2px solid var(--ok); background:var(--ok2);
+  font-size:6px; color:var(--ok); letter-spacing:0.05em;
+}
+.blink { width:5px; height:5px; background:var(--ok); animation:blink 1.1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+
+.sprint-tag { padding:4px 10px; border:2px solid var(--b2); background:var(--panel); font-size:6px; color:var(--t3); }
+.avatar { width:32px; height:32px; background:var(--fur2); border:2px solid var(--w2); display:flex; align-items:center; justify-content:center; font-size:6px; color:var(--w); }
+
+/* ══════════════════ MAIN ══════════════════ */
+.main { flex:1; display:flex; overflow:hidden; min-height:0; }
+
+.sidebar {
+  width:48px; flex-shrink:0;
+  background:var(--fur); border-right:2px solid var(--b1);
+  display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:6px;
+}
+.sb { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:2px solid transparent; cursor:pointer; color:var(--t3); transition:all 0.1s; font-size:13px; }
+.sb:hover { border-color:var(--b2); color:var(--t2); background:var(--w4); }
+.sb.on { border-color:var(--w2); color:var(--w); background:var(--w3); }
+.sb-sep { width:22px; height:2px; background:var(--b1); margin:4px 0; }
+
+.workspace { flex:1; padding:14px 12px 12px; display:flex; flex-direction:column; gap:12px; overflow:hidden; min-height:0; }
+
+.ws-hdr { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.ws-title { font-size:8px; color:var(--w); letter-spacing:0.04em; }
+.ws-title .sep { color:var(--am); }
+.ws-actions { margin-left:auto; display:flex; gap:8px; }
+.btn {
+  padding:7px 13px; font-family:var(--px); font-size:6px; border:2px solid; cursor:pointer;
+  letter-spacing:0.05em; transition:all 0.08s; box-shadow:2px 2px 0 rgba(0,0,0,0.5);
+}
+.btn:active { transform:translate(1px,1px); box-shadow:none; }
+.btn-g { border-color:var(--b2); background:var(--panel); color:var(--t2); }
+.btn-g:hover { border-color:var(--b3); color:var(--t1); }
+.btn-w { border-color:var(--w2); background:var(--w3); color:var(--w); }
+.btn-w:hover { background:rgba(240,240,240,0.12); }
+
+/* ══════════════════ COLUMNS ══════════════════ */
+.columns { flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; overflow:hidden; min-height:0; }
+
+.col {
+  display:flex; flex-direction:column;
+  border:2px solid var(--b1); overflow:hidden; position:relative;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.4);
+  transition:border-color 0.15s;
+}
+/* Cat ear nubs */
+.col::before, .col::after {
+  content:''; position:absolute; top:-4px; z-index:6; width:0; height:0; border-style:solid;
+}
+.col::before { left:10px; border-width:0 5px 5px 0; border-color:transparent var(--b2) transparent transparent; }
+.col::after  { right:10px; border-width:0 0 5px 5px; border-color:transparent transparent transparent var(--b2); }
+
+/* Backlog */
+.col-backlog { background:var(--col-backlog); }
+/* In progress — barely lighter bg + left accent strip */
+.col-active {
+  background:var(--col-active);
+  border-color:rgba(240,240,240,0.18);
+  box-shadow:2px 2px 0 rgba(0,0,0,0.4), 0 0 20px rgba(240,240,240,0.03);
+}
+.col-active::before { border-color:transparent var(--w2) transparent transparent; }
+.col-active::after  { border-color:transparent transparent transparent var(--w2); }
+/* Left accent strip on active col */
+.col-active .col-body::before {
+  content:''; position:absolute; left:0; top:48px; bottom:0; width:2px;
+  background:linear-gradient(180deg, rgba(240,240,240,0.2) 0%, rgba(240,240,240,0.05) 100%);
+  pointer-events:none;
+}
+/* Review */
+.col-review { background:var(--col-review); }
+.col-review::before { border-color:transparent var(--warn) transparent transparent; opacity:0.5; }
+.col-review::after  { border-color:transparent transparent transparent var(--warn); opacity:0.5; }
+/* Done */
+.col-done { background:var(--col-done); }
+
+.col-hdr {
+  padding:9px 10px; border-bottom:2px solid var(--b1);
+  background:rgba(0,0,0,0.3);
+  display:flex; align-items:center; gap:7px; flex-shrink:0;
+}
+.col-name { font-size:6px; letter-spacing:0.08em; }
+.col-count { margin-left:auto; font-size:6px; padding:2px 7px; border:2px solid var(--b2); background:var(--surface); color:var(--t3); }
+
+/* cat eye in header */
+.ceye { width:13px; height:8px; border-radius:50%; flex-shrink:0; position:relative; }
+.ceye::after { content:''; position:absolute; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--bg); }
+.ceye-shut { background:var(--t3); }
+.ceye-shut::after { width:11px; height:2px; border-radius:0; top:62%; }
+.ceye-half { background:var(--warn); }
+.ceye-half::after { width:4px; height:4px; }
+.ceye-open { background:var(--w); box-shadow:0 0 5px rgba(240,240,240,0.3); }
+.ceye-open::after { width:5px; height:6px; }
+
+.col-body { flex:1; overflow-y:auto; padding:8px 8px; display:flex; flex-direction:column; gap:7px; position:relative; }
+.col-body::-webkit-scrollbar { width:3px; }
+.col-body::-webkit-scrollbar-thumb { background:var(--b2); }
+
+/* ══════════════════ TICKETS ══════════════════ */
+.ticket {
+  background:var(--card); border:2px solid var(--b1);
+  padding:9px 9px 8px; cursor:pointer; position:relative;
+  transition:transform 0.1s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.1s, background 0.1s;
+  /* cat ear cutouts */
+  clip-path:polygon(0% 6px, 6px 6px, 6px 0%, calc(100% - 6px) 0%, calc(100% - 6px) 6px, 100% 6px, 100% 100%, 0% 100%);
+}
+.ticket:hover {
+  transform:translate(-2px,-3px);
+  box-shadow:3px 4px 0 rgba(0,0,0,0.6), 0 0 12px rgba(0,0,0,0.4);
+  background:var(--card-ho); z-index:5;
+}
+.ticket:hover .tkeye { transform:scale(1.15); }
+
+/* active ticket */
+.tk-active { background:#121218; border-color:rgba(240,240,240,0.15); }
+.tk-active:hover { background:#16161E; }
+
+/* running — animated dashed bottom */
+.tk-running::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  background:repeating-linear-gradient(90deg, var(--am) 0, var(--am) 3px, transparent 3px, transparent 7px);
+  animation:crawl 0.4s steps(1) infinite; opacity:0.7;
+}
+@keyframes crawl { 0%{background-position:0 0}100%{background-position:-7px 0} }
+
+/* done ticket — desaturated, slight opacity, no strikethrough (use color instead) */
+.tk-done { opacity:0.55; filter:grayscale(0.4); }
+.tk-done .ticket-title { color:var(--t2); }
+.tk-done:hover { opacity:0.75; filter:grayscale(0.2); }
+
+/* cat eye indicator — top right of ticket */
+.tkeye {
+  position:absolute; top:5px; right:6px;
+  width:9px; height:6px; border-radius:50%;
+  transition:transform 0.15s;
+}
+.tkeye::after { content:''; position:absolute; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--card); }
+.tkeye-on  { background:var(--am); box-shadow:0 0 5px rgba(232,148,28,0.4); }
+.tkeye-on::after  { width:3px; height:4px; }
+.tkeye-mid { background:var(--warn); }
+.tkeye-mid::after { width:3px; height:3px; }
+.tkeye-off { background:var(--t3); }
+.tkeye-off::after { width:7px; height:1.5px; border-radius:0; top:65%; }
+
+.ticket-top { display:flex; gap:7px; margin-bottom:7px; padding-right:16px; }
+.ticket-id { font-size:5px; color:var(--t3); flex-shrink:0; margin-top:1px; }
+.ticket-title { font-size:6px; line-height:1.85; color:var(--t1); }
+
+/* ── Tag system ── max 2 per ticket, semantic colors only */
+.ticket-tags { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:7px; }
+.tag { font-size:5px; padding:2px 6px; border:1px solid; letter-spacing:0.03em; }
+.tag-type { background:var(--tag-type); color:var(--tag-type-c); border-color:var(--tag-type-b); }
+.tag-prio { background:var(--tag-prio); color:var(--tag-prio-c); border-color:var(--tag-prio-b); }
+.tag-stat { background:var(--tag-stat); color:var(--tag-stat-c); border-color:var(--tag-stat-b); }
+.tag-warn { background:var(--tag-warn); color:var(--tag-warn-c); border-color:var(--tag-warn-b); }
+.tag-done { background:var(--tag-done); color:var(--tag-done-c); border-color:var(--tag-done-b); }
+
+.ticket-foot { display:flex; align-items:center; gap:5px; }
+.tkav { width:16px; height:16px; border:2px solid; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:4px; }
+.tkmeta { font-size:5px; color:var(--t3); margin-left:auto; }
+.tkagent { font-size:5px; color:var(--am); margin-left:auto; letter-spacing:0.04em; }
+
+/* ══════════════════ EMPTY STATE ══════════════════ */
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; padding:20px 0; opacity:0.35;
+}
+.empty-label { font-size:5px; color:var(--t3); letter-spacing:0.06em; }
+
+/* ══════════════════ RIGHT PANEL ══════════════════ */
+.rpanel {
+  width:340px; flex-shrink:0;
+  display:flex; flex-direction:column;
+  background:var(--panel); border-left:2px solid var(--b1);
+  box-shadow:-2px 0 12px rgba(0,0,0,0.3);
+}
+
+/* ── Cat night scene ── */
+.cat-scene {
+  height:116px; flex-shrink:0; position:relative; overflow:hidden;
+  background:linear-gradient(180deg, #020305 0%, #060608 55%, #0C0C0C 100%);
+  border-bottom:2px solid var(--b1);
+}
+
+/* floor grid */
+.scene-floor {
+  position:absolute; bottom:20px; left:0; right:0; height:2px;
+  background:repeating-linear-gradient(90deg, var(--b2) 0, var(--b2) 6px, transparent 6px, transparent 10px);
+}
+
+/* moon */
+.scene-moon {
+  position:absolute; top:10px; right:22px;
+  width:20px; height:20px; border-radius:50%;
+  background:var(--w2); box-shadow:0 0 10px rgba(240,240,240,0.2), 0 0 24px rgba(240,240,240,0.06);
+}
+.scene-moon::after {
+  content:''; position:absolute; top:3px; left:5px;
+  width:9px; height:9px; border-radius:50%;
+  background:#030305;
+}
+
+/* yarn */
+.scene-yarn {
+  position:absolute; bottom:22px; left:24px;
+  width:13px; height:13px; border-radius:50%;
+  border:2px solid var(--am); opacity:0.55;
+  background:repeating-conic-gradient(var(--am2) 0deg 20deg, transparent 20deg 40deg);
+}
+
+/* hearts */
+.hrt { position:absolute; font-size:7px; color:var(--err); opacity:0; animation:fup 3.2s ease-in infinite; }
+.hrt:nth-child(1) { bottom:52px; left:148px; animation-delay:0s; }
+.hrt:nth-child(2) { bottom:52px; left:162px; animation-delay:1.4s; font-size:5px; }
+.hrt:nth-child(3) { bottom:52px; left:138px; animation-delay:2.5s; font-size:5px; color:var(--w2); }
+@keyframes fup { 0%{opacity:0;transform:translateY(0) scale(.5)} 25%{opacity:.9} 100%{opacity:0;transform:translateY(-28px) scale(1)} }
+
+/* zzz */
+.zzz { position:absolute; font-size:6px; color:var(--info); opacity:0; font-family:var(--px); animation:fz 2.8s ease-in infinite; }
+.zzz:nth-child(1) { animation-delay:0s;   font-size:5px; }
+.zzz:nth-child(2) { animation-delay:0.9s; font-size:7px; }
+.zzz:nth-child(3) { animation-delay:1.8s; font-size:9px; }
+@keyframes fz { 0%{opacity:0;transform:translate(0,0) rotate(-5deg)} 30%{opacity:.75} 100%{opacity:0;transform:translate(10px,-22px) rotate(10deg)} }
+
+.cats-row {
+  position:absolute; bottom:22px;
+  left:50%; transform:translateX(-50%);
+  display:flex; align-items:flex-end; gap:10px; z-index:5;
+}
+.cat-unit { display:flex; flex-direction:column; align-items:center; gap:3px; }
+.cat-lbl { font-size:4px; color:var(--t3); letter-spacing:0.05em; }
+
+/* panel header */
+.phdr {
+  height:36px; flex-shrink:0; background:var(--fur2); border-bottom:2px solid var(--b1);
+  display:flex; align-items:center; padding:0 12px; gap:8px;
+}
+.pctrl { display:flex; gap:5px; }
+.pctrl div { width:10px; height:10px; border:1px solid rgba(0,0,0,0.4); }
+.ptitle { font-size:6px; color:var(--t3); margin-left:4px; letter-spacing:0.05em; }
+.pbadge { margin-left:auto; font-size:5px; padding:2px 7px; border:1px solid var(--ok); background:var(--ok2); color:var(--ok); letter-spacing:0.05em; }
+
+/* terminal */
+.term {
+  flex:1; padding:11px 14px; overflow-y:auto;
+  background:#020202; font-size:6px; line-height:2.1;
+}
+.term::-webkit-scrollbar { display:none; }
+.tl { display:block; }
+.tp { color:var(--w); }
+.tc { color:var(--t1); }
+.to { color:var(--t3); }
+.ts { color:var(--ok); }
+.tw { color:var(--warn); }
+.ta { color:var(--am); }
+.cur { display:inline-block; width:6px; height:11px; background:var(--w); vertical-align:middle; margin-left:2px; animation:blink 1s step-end infinite; }
+
+/* snack bar */
+.snackbar {
+  height:26px; flex-shrink:0; background:var(--fur2); border-top:2px solid var(--b1);
+  display:flex; align-items:center; padding:0 12px; gap:8px;
+}
+.snack-l { font-size:5px; color:var(--t3); letter-spacing:0.04em; }
+.snack-v { font-size:5px; color:var(--am); margin-left:auto; letter-spacing:0.04em; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <canvas id="logo" width="26" height="26"></canvas>
+    <span class="logo-name">claude<span class="dot">·</span>hub</span>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active">KANBAN</div>
+    <div class="nav-item">SESSION</div>
+    <div class="nav-item">PILOT</div>
+    <div class="nav-item">LOG</div>
+  </nav>
+  <div class="topbar-right">
+    <div class="sprint-tag">SPRINT-04</div>
+    <div class="agent-pill"><div class="blink"></div>3 AGENTS</div>
+    <canvas id="calico" width="26" height="26"></canvas>
+    <div class="avatar">MY</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb on">⊞</div>
+    <div class="sb">◫</div>
+    <div class="sb">⊕</div>
+    <div class="sb-sep"></div>
+    <div class="sb">⚙</div>
+    <div class="sb">?</div>
+  </aside>
+
+  <!-- WORKSPACE -->
+  <div class="workspace">
+    <div class="ws-hdr">
+      <span class="ws-title">UMR MODEL <span class="sep">·</span> SPRINT 4</span>
+      <div class="ws-actions">
+        <button class="btn btn-g">FILTER</button>
+        <button class="btn btn-w">+ NEW TICKET</button>
+      </div>
+    </div>
+
+    <div class="columns">
+
+      <!-- BACKLOG -->
+      <div class="col col-backlog">
+        <div class="col-hdr">
+          <div class="ceye ceye-shut"></div>
+          <span class="col-name" style="color:var(--t2);">BACKLOG</span>
+          <span class="col-count">4</span>
+        </div>
+        <div class="col-body">
+
+          <div class="ticket">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#042</span><span class="ticket-title">SHAP feature importance viz for UMR</span></div>
+            <div class="ticket-tags"><span class="tag tag-type">ML · SHAP</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b2);color:var(--t3);">?</div>
+              <span class="tkmeta">APR 2</span>
+            </div>
+          </div>
+
+          <div class="ticket">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#039</span><span class="ticket-title">Polars pipeline for preprocessing</span></div>
+            <div class="ticket-tags"><span class="tag tag-type">DATA</span><span class="tag tag-stat">POLARS</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--w2);">MY</div>
+              <span class="tkmeta">MAR 28</span>
+            </div>
+          </div>
+
+          <div class="ticket">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#038</span><span class="ticket-title">RAG context injection for agents</span></div>
+            <div class="ticket-tags"><span class="tag tag-type">AGENT · RAG</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--w2);">MY</div>
+              <span class="tkmeta">APR 5</span>
+            </div>
+          </div>
+
+          <div class="ticket">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#035</span><span class="ticket-title">XGBoost node weight visualizer</span></div>
+            <div class="ticket-tags"><span class="tag tag-type">ML</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b2);color:var(--t3);">?</div>
+              <span class="tkmeta">APR 5</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- IN PROGRESS -->
+      <div class="col col-active">
+        <div class="col-hdr">
+          <div class="ceye ceye-open"></div>
+          <span class="col-name" style="color:var(--w);">IN PROGRESS</span>
+          <span class="col-count" style="border-color:rgba(240,240,240,0.25);color:var(--w2);">3</span>
+        </div>
+        <div class="col-body">
+
+          <div class="ticket tk-active tk-running">
+            <div class="tkeye tkeye-on"></div>
+            <div class="ticket-top" style="padding-right:18px;">
+              <span class="ticket-id" style="color:var(--t2);">#047</span>
+              <span class="ticket-title">TypeScript monorepo · Hono backend</span>
+            </div>
+            <div class="ticket-tags"><span class="tag tag-prio">ARCH · HIGH</span><span class="tag tag-type">TS</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--w2);color:var(--w);">MY</div>
+              <span class="tkagent">▶ AGENT#2</span>
+            </div>
+          </div>
+
+          <div class="ticket tk-active tk-running">
+            <div class="tkeye tkeye-on"></div>
+            <div class="ticket-top" style="padding-right:18px;">
+              <span class="ticket-id" style="color:var(--t2);">#045</span>
+              <span class="ticket-title">PTY subprocess wrapper for CC sessions</span>
+            </div>
+            <div class="ticket-tags"><span class="tag tag-type">CORE · PTY</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--ok);">MY</div>
+              <span class="tkagent">▶ AGENT#1</span>
+            </div>
+          </div>
+
+          <div class="ticket" style="border-color:rgba(240,240,240,0.1);">
+            <div class="tkeye tkeye-mid"></div>
+            <div class="ticket-top">
+              <span class="ticket-id">#044</span>
+              <span class="ticket-title">Ticket Refinement Agent v1</span>
+            </div>
+            <div class="ticket-tags"><span class="tag tag-type">AGENT</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--w2);">MY</div>
+              <span class="tkmeta">MAR 30</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- REVIEW -->
+      <div class="col col-review">
+        <div class="col-hdr">
+          <div class="ceye ceye-half"></div>
+          <span class="col-name" style="color:var(--warn);">REVIEW</span>
+          <span class="col-count">2</span>
+        </div>
+        <div class="col-body">
+
+          <div class="ticket">
+            <div class="tkeye tkeye-mid"></div>
+            <div class="ticket-top"><span class="ticket-id">#041</span><span class="ticket-title">Redis pub/sub event bus for agents</span></div>
+            <div class="ticket-tags"><span class="tag tag-warn">REDIS</span><span class="tag tag-type">INFRA</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--err);">MY</div>
+              <span class="tkmeta">MAR 26</span>
+            </div>
+          </div>
+
+          <div class="ticket">
+            <div class="tkeye tkeye-mid"></div>
+            <div class="ticket-top"><span class="ticket-id">#040</span><span class="ticket-title">GitHub Issues persistence adapter</span></div>
+            <div class="ticket-tags"><span class="tag tag-stat">STORAGE</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b3);color:var(--w2);">MY</div>
+              <span class="tkmeta">MAR 25</span>
+            </div>
+          </div>
+
+          <!-- empty state -->
+          <div class="empty-state">
+            <canvas id="emptycat1" width="32" height="36"></canvas>
+            <span class="empty-label">DROP HERE</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DONE -->
+      <div class="col col-done">
+        <div class="col-hdr">
+          <div class="ceye ceye-shut"></div>
+          <span class="col-name" style="color:var(--ok);">DONE</span>
+          <span class="col-count">6</span>
+        </div>
+        <div class="col-body">
+
+          <div class="ticket tk-done">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#036</span><span class="ticket-title">Pilot Mode supervisor LLM integration</span></div>
+            <div class="ticket-tags"><span class="tag tag-done">✓ DONE</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b2);color:var(--ok);">MY</div>
+              <span class="tkmeta">MAR 20</span>
+            </div>
+          </div>
+
+          <div class="ticket tk-done">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#033</span><span class="ticket-title">React 19 + Vite + Tailwind v4 scaffold</span></div>
+            <div class="ticket-tags"><span class="tag tag-done">✓ DONE</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b2);color:var(--w2);">MY</div>
+              <span class="tkmeta">MAR 18</span>
+            </div>
+          </div>
+
+          <div class="ticket tk-done">
+            <div class="tkeye tkeye-off"></div>
+            <div class="ticket-top"><span class="ticket-id">#029</span><span class="ticket-title">Kanban board state machine design</span></div>
+            <div class="ticket-tags"><span class="tag tag-done">✓ DONE</span></div>
+            <div class="ticket-foot">
+              <div class="tkav" style="border-color:var(--b2);color:var(--w2);">MY</div>
+              <span class="tkmeta">MAR 14</span>
+            </div>
+          </div>
+
+          <!-- empty state -->
+          <div class="empty-state" style="opacity:0.2;">
+            <canvas id="emptycat2" width="32" height="36"></canvas>
+            <span class="empty-label">ALL CLEAR</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="rpanel">
+
+    <div class="cat-scene">
+      <canvas id="stars" width="340" height="116" style="position:absolute;inset:0;"></canvas>
+      <div class="scene-moon"></div>
+      <div class="scene-yarn"></div>
+      <div class="scene-floor"></div>
+
+      <!-- fish bones -->
+      <canvas id="fish" width="340" height="116" style="position:absolute;inset:0;z-index:2;"></canvas>
+
+      <!-- hearts near middle cat -->
+      <div style="position:absolute;bottom:38px;left:155px;z-index:6;">
+        <div class="hrt">♥</div><div class="hrt">♥</div><div class="hrt">♥</div>
+      </div>
+      <!-- zzz near right cat -->
+      <div style="position:absolute;bottom:48px;right:48px;z-index:6;">
+        <div class="zzz">z</div><div class="zzz">z</div><div class="zzz">z</div>
+      </div>
+
+      <div class="cats-row">
+        <div class="cat-unit">
+          <canvas id="c1" width="34" height="44"></canvas>
+          <span class="cat-lbl" style="color:var(--ok);">A#1</span>
+        </div>
+        <div class="cat-unit">
+          <canvas id="c2" width="34" height="44"></canvas>
+          <span class="cat-lbl" style="color:var(--am);">A#2</span>
+        </div>
+        <div class="cat-unit">
+          <canvas id="c3" width="34" height="44"></canvas>
+          <span class="cat-lbl" style="color:var(--info);">A#3</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="phdr">
+      <div class="pctrl">
+        <div style="background:#E04040;border-color:#600000;"></div>
+        <div style="background:#E0B840;border-color:#604000;"></div>
+        <div style="background:#40C068;border-color:#005828;"></div>
+      </div>
+      <span class="ptitle">AGENT#2 · SESSION #047</span>
+      <div class="pbadge">RUNNING</div>
+    </div>
+
+    <div class="term">
+      <span class="tl"><span class="tp">›</span> <span class="tc">claude --resume s-047</span></span>
+      <span class="tl to">context: 14 files · 2840 tokens</span>
+      <span class="tl"> </span>
+      <span class="tl"><span class="tp">◆</span> <span class="to">reading kanban.py</span></span>
+      <span class="tl"><span class="tp">◆</span> <span class="to">converting FastAPI → Hono</span></span>
+      <span class="tl"> </span>
+      <span class="tl ts">✓ /api/tickets     38 lines</span>
+      <span class="tl ts">✓ /api/sessions    52 lines</span>
+      <span class="tl ts">✓ /api/agents      29 lines</span>
+      <span class="tl"> </span>
+      <span class="tl tw">! missing: SessionStatus</span>
+      <span class="tl"><span class="tp">◆</span> <span class="to">inferring from usage patterns</span></span>
+      <span class="tl ts">✓ types/session.ts generated</span>
+      <span class="tl"> </span>
+      <span class="tl"><span class="tp">›</span> <span class="tc">npx tsc --noEmit</span></span>
+      <span class="tl ts">✓ 0 errors · 24 files</span>
+      <span class="tl"> </span>
+      <span class="tl"><span class="tp">◆</span> <span class="to">pushing #047 → review</span></span>
+      <span class="tl ts">✓ done</span>
+      <span class="tl"> </span>
+      <span class="tl"><span class="tp">›</span> <span class="cur"></span></span>
+    </div>
+
+    <div class="snackbar">
+      <canvas id="bowl" width="16" height="14"></canvas>
+      <span class="snack-l">SNACK TIME</span>
+      <span style="font-size:8px; opacity:0.5;">🐟🐟🐟</span>
+      <span class="snack-v">6 / 10 done</span>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<script>
+/* ── pixel draw helper ── */
+function draw(id, grid, pal, sz) {
+  const cv = document.getElementById(id);
+  if (!cv) return;
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0,0,cv.width,cv.height);
+  const ox = Math.floor((cv.width  - grid[0].length*sz)/2);
+  const oy = Math.floor((cv.height - grid.length*sz)/2);
+  grid.forEach((row,y)=>row.forEach((v,x)=>{
+    if(!pal[v]) return;
+    c.fillStyle=pal[v];
+    c.fillRect(ox+x*sz, oy+y*sz, sz, sz);
+  }));
+}
+
+/* ── logo black cat face ── */
+draw('logo',[
+  [0,1,0,0,0,0,0,1,0],
+  [1,2,1,0,0,0,1,2,1],
+  [1,2,2,1,1,1,2,2,1],
+  [0,1,2,2,2,2,2,1,0],
+  [0,1,2,3,2,3,2,1,0],
+  [0,1,2,2,2,2,2,1,0],
+  [0,1,2,4,4,4,2,1,0],
+  [0,0,1,2,2,2,1,0,0],
+],{1:'#1A1A1A',2:'#0E0E0E',3:'#F0F0F0',4:'#D07878'},3);
+
+/* ── calico badge ── */
+draw('calico',[
+  [0,1,0,0,0,0,0,1,0],
+  [1,3,1,0,0,0,1,2,1],
+  [1,3,3,1,1,1,2,2,1],
+  [0,1,3,2,2,2,2,1,0],
+  [0,1,2,4,2,4,2,1,0],
+  [0,1,3,2,5,2,2,1,0],
+  [0,0,1,3,2,2,1,0,0],
+],{1:'#1A1A1A',2:'#E8D8B8',3:'#D06820',4:'#F0F0F0',5:'#D07878'},3);
+
+/* ── bowl ── */
+draw('bowl',[
+  [0,1,1,1,1,1,1,0],
+  [1,0,0,0,0,0,0,1],
+  [1,0,2,2,2,2,0,1],
+  [0,1,1,1,1,1,1,0],
+  [0,0,1,1,1,1,0,0],
+  [0,1,1,1,1,1,1,0],
+],{1:'#404040',2:'rgba(240,240,240,0.25)'},2);
+
+/* ── cat body ── */
+function drawCat(id, body, eye, scarf, anim) {
+  const cv = document.getElementById(id);
+  if (!cv) return;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const sz = 3;
+
+  // walking pose
+  const walkA = [
+    [0,0,1,0,0,0,1,0,0],
+    [0,1,2,1,0,1,2,1,0],
+    [0,1,2,2,1,2,2,1,0],
+    [0,0,1,2,3,3,2,1,0],
+    [0,0,1,2,2,2,2,1,0],
+    [0,0,1,4,4,4,4,1,0],
+    [0,1,2,2,2,2,2,2,1],
+    [0,1,2,2,2,2,2,2,1],
+    [0,1,2,2,2,2,2,2,1],
+    [1,2,1,0,2,2,1,0,1],
+    [1,0,0,0,1,1,0,0,0],
+  ];
+  // sitting pose
+  const sit = [
+    [0,0,1,0,0,0,1,0,0],
+    [0,1,2,1,0,1,2,1,0],
+    [0,1,2,2,1,2,2,1,0],
+    [0,0,1,2,3,3,2,1,0],
+    [0,0,1,2,2,2,2,1,0],
+    [0,0,1,4,4,4,4,1,0],
+    [0,1,2,2,2,2,2,2,1],
+    [0,1,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,2,2],
+    [1,2,2,2,2,2,2,2,2],
+    [0,1,1,2,0,0,2,1,1],
+  ];
+  const grid = anim === 'sit' ? sit : walkA;
+  const pal  = {0:null,1:'#181818',2:body,3:eye,4:scarf||body};
+  const ox = Math.floor((cv.width  - 9*sz)/2);
+  const oy = Math.floor((cv.height - grid.length*sz)/2);
+  g.clearRect(0,0,cv.width,cv.height);
+  grid.forEach((row,y)=>row.forEach((v,x)=>{
+    if(!pal[v]) return;
+    g.fillStyle=pal[v];
+    g.fillRect(ox+x*sz, oy+y*sz, sz, sz);
+  }));
+}
+
+drawCat('c1', '#0C0C0C', '#F0F0F0', '#8A9EBA', 'walk'); // black + scarf
+drawCat('c2', '#0C0C0C', '#E8941C', null,       'walk'); // black amber eyes
+drawCat('c3', '#E8D8B8', '#F0F0F0', '#D06820',  'sit');  // calico sleeping
+
+/* ── empty state cats ── */
+draw('emptycat1',[
+  [0,0,1,0,0,0,1,0,0],
+  [0,1,2,1,0,1,2,1,0],
+  [0,1,2,2,1,2,2,1,0],
+  [0,0,1,2,3,3,2,1,0],
+  [0,0,1,2,2,2,2,1,0],
+  [0,1,2,2,2,2,2,2,1],
+  [0,1,2,2,2,2,2,2,1],
+  [0,1,1,2,2,2,2,1,1],
+  [0,0,0,1,2,2,1,0,0],
+],{1:'#1E1E1E',2:'#141414',3:'#D0D0D0'},3);
+
+draw('emptycat2',[
+  [0,0,1,0,0,0,1,0,0],
+  [0,1,2,1,0,1,2,1,0],
+  [0,1,2,2,1,2,2,1,0],
+  [0,0,1,2,3,3,2,1,0],
+  [0,0,1,2,2,2,2,1,0],
+  [0,1,2,2,2,2,2,2,1],
+  [0,1,2,2,2,2,2,2,1],
+  [0,1,1,2,2,2,2,1,1],
+],{1:'#1E1E1E',2:'#141414',3:'#D0D0D0'},3);
+
+/* ── animated stars ── */
+(function(){
+  const cv = document.getElementById('stars');
+  const c = cv.getContext('2d');
+  const stars = Array.from({length:30},()=>({
+    x:Math.random()*340, y:Math.random()*55,
+    s:Math.random()>.7?2:1,
+    o:0.25+Math.random()*0.5, t:Math.random()*Math.PI*2
+  }));
+  function tick(){
+    c.clearRect(0,0,340,116);
+    stars.forEach(s=>{
+      s.t+=0.018;
+      c.fillStyle=`rgba(240,240,240,${s.o*(0.7+0.3*Math.sin(s.t))})`;
+      c.fillRect(s.x,s.y,s.s,s.s);
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+/* ── fish bones ── */
+(function(){
+  const cv = document.getElementById('fish');
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  const g=[
+    [0,1,0,1,0,1,0,0,0],
+    [1,0,1,0,1,0,1,0,0],
+    [0,1,1,1,1,1,0,1,0],
+    [0,0,0,1,0,0,0,0,1],
+  ];
+  g.forEach((row,y)=>row.forEach((v,x)=>{
+    if(!v) return;
+    c.fillStyle='rgba(240,240,240,0.15)';
+    c.fillRect(176+x*3, 85+y*3, 3, 3);
+  }));
+})();
+
+/* ── animate cats ── */
+let t=0;
+setInterval(()=>{
+  t++;
+  ['c1','c2'].forEach((id,i)=>{
+    document.getElementById(id).style.transform=`translateY(${Math.sin(t*.22+i*1.4)*2.5}px)`;
+  });
+  document.getElementById('c3').style.transform=`translateY(${Math.sin(t*.06)*.6}px)`;
+}, 90);
+
+/* ── nav/sidebar interactions ── */
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',function(){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+document.querySelectorAll('.sb').forEach(el=>{
+  el.addEventListener('click',function(){
+    document.querySelectorAll('.sb').forEach(b=>b.classList.remove('on'));
+    this.classList.add('on');
+  });
+});
+
+/* ── ticket hover: animate eye ── */
+document.querySelectorAll('.ticket').forEach(t=>{
+  t.addEventListener('mouseenter',()=>{
+    const eye = t.querySelector('.tkeye');
+    if(eye && eye.classList.contains('tkeye-off')){
+      eye.style.background='#404040';
+    }
+  });
+  t.addEventListener('mouseleave',()=>{
+    const eye = t.querySelector('.tkeye');
+    if(eye && eye.classList.contains('tkeye-off')){
+      eye.style.background='';
+    }
+  });
+});
+</script>
+</body>
+</html>

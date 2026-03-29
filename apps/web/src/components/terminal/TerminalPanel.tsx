@@ -42,6 +42,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const { activeTab, panelCollapsed } = useTerminalStore();
   const switchTab = useTerminalStore((s) => s.switchTab);
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
+  const storePilotActive = useBoardStore((s) => s.pilotActive);
   const columns = useBoardStore((s) => s.columns);
 
   // Derive running/queued/completed ticket numbers from board state
@@ -68,6 +69,49 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const [ccLoading, setCcLoading] = useState(false);
   const [sessions, setSessions] = useState<CCSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  // Pilot mode state
+  const [pilotActive, setPilotActive] = useState(false);
+  const [pilotLoading, setPilotLoading] = useState(false);
+  const [showPilotForm, setShowPilotForm] = useState(false);
+  const [pilotGoal, setPilotGoal] = useState("");
+  const [pilotMin, setPilotMin] = useState(30);
+  const [pilotMax, setPilotMax] = useState(120);
+
+  // Fetch pilot status when kanban is running
+  useEffect(() => {
+    if (!kanbanRunning) { setPilotActive(false); return; }
+    api.getPilotStatus(projectId)
+      .then((res) => setPilotActive(res.active))
+      .catch(() => {});
+  }, [projectId, kanbanRunning]);
+
+  // Sync from WS events
+  useEffect(() => { setPilotActive(storePilotActive); }, [storePilotActive]);
+
+  const handleStartPilot = async () => {
+    if (!pilotGoal.trim()) return;
+    setPilotLoading(true);
+    try {
+      await api.startPilot(projectId, pilotGoal.trim(), pilotMin, pilotMax);
+      setPilotActive(true);
+      setShowPilotForm(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start pilot");
+    }
+    setPilotLoading(false);
+  };
+
+  const handleStopPilot = async () => {
+    setPilotLoading(true);
+    try {
+      await api.stopPilot(projectId);
+      setPilotActive(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to stop pilot");
+    }
+    setPilotLoading(false);
+  };
 
   // Fetch sessions when not running
   useEffect(() => {
@@ -217,14 +261,65 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         <div className="flex-1 overflow-hidden flex">
           {kanbanRunning ? (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-end gap-2 px-3 py-1 border-b border-border-default">
-                <button
-                  onClick={handleStopKanbanCC}
-                  disabled={ccLoading}
-                  className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer disabled:opacity-50"
-                >
-                  STOP
-                </button>
+              <div className="flex flex-col border-b border-border-default">
+                <div className="flex items-center justify-end gap-2 px-3 py-1">
+                  <button
+                    onClick={() => {
+                      if (pilotActive) handleStopPilot();
+                      else setShowPilotForm((v) => !v);
+                    }}
+                    disabled={pilotLoading}
+                    className={`font-pixel text-[7px] cursor-pointer disabled:opacity-50 ${
+                      pilotActive
+                        ? "text-accent animate-pulse"
+                        : "text-text-muted hover:text-accent"
+                    }`}
+                  >
+                    {pilotActive ? "PILOT ON" : "PILOT"}
+                  </button>
+                  <button
+                    onClick={handleStopKanbanCC}
+                    disabled={ccLoading}
+                    className="font-pixel text-[7px] text-status-error hover:text-status-error/80 cursor-pointer disabled:opacity-50"
+                  >
+                    STOP
+                  </button>
+                </div>
+                {showPilotForm && !pilotActive && (
+                  <div className="flex flex-col gap-1.5 px-3 py-2 border-t border-border-default">
+                    <input
+                      type="text"
+                      value={pilotGoal}
+                      onChange={(e) => setPilotGoal(e.target.value)}
+                      placeholder="Goal (e.g. complete the app)"
+                      className="font-pixel text-[7px] bg-bg-base border border-border-default rounded px-2 py-1 text-text-primary placeholder:text-text-muted outline-none focus:border-accent/60"
+                    />
+                    <div className="flex items-center gap-2">
+                      <label className="font-pixel text-[6px] text-text-muted">MIN</label>
+                      <input
+                        type="number"
+                        value={pilotMin}
+                        onChange={(e) => setPilotMin(Number(e.target.value) || 30)}
+                        className="w-12 font-pixel text-[7px] bg-bg-base border border-border-default rounded px-1 py-0.5 text-text-primary outline-none focus:border-accent/60"
+                      />
+                      <label className="font-pixel text-[6px] text-text-muted">MAX</label>
+                      <input
+                        type="number"
+                        value={pilotMax}
+                        onChange={(e) => setPilotMax(Number(e.target.value) || 120)}
+                        className="w-12 font-pixel text-[7px] bg-bg-base border border-border-default rounded px-1 py-0.5 text-text-primary outline-none focus:border-accent/60"
+                      />
+                      <span className="font-pixel text-[6px] text-text-muted">sec</span>
+                      <button
+                        onClick={handleStartPilot}
+                        disabled={pilotLoading || !pilotGoal.trim()}
+                        className="ml-auto font-pixel text-[7px] text-accent hover:text-accent/80 cursor-pointer disabled:opacity-50"
+                      >
+                        START
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex-1 overflow-hidden flex">
                 <TerminalView type="kanban" projectId={projectId} panelWidth={width} />

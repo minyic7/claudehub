@@ -14,6 +14,7 @@ import { settings } from "./routes/settings.js";
 import { webhooks } from "./routes/webhooks.js";
 import { createWsRoutes } from "./routes/ws.js";
 import { recoverOnStartup, shutdownAll } from "./services/cc/manager.js";
+import { stopAllPilots } from "./services/cc/pilot.js";
 import { redis } from "./services/redis.js";
 
 const app = new Hono();
@@ -72,6 +73,7 @@ injectWebSocket(server);
 // Graceful shutdown
 async function shutdown(signal: string) {
   console.log(`\n${signal} received, shutting down gracefully...`);
+  stopAllPilots();
   shutdownAll();
   redis.disconnect();
   server.close();
