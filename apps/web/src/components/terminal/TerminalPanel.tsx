@@ -198,7 +198,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   if (panelCollapsed) {
     return (
       <div
-        className="w-9 shrink-0 bg-bg-surface border-l border-border-default flex items-center justify-center cursor-pointer hover:bg-bg-elevated transition-colors"
+        className="w-9 h-full bg-bg-surface border border-border-default rounded flex items-center justify-center cursor-pointer hover:bg-bg-elevated transition-colors"
         onClick={() => {
           useTerminalStore.setState({ panelCollapsed: false });
         }}
@@ -214,7 +214,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const activeTicketTab = typeof activeTab === "number" ? activeTab : null;
 
   return (
-    <div className="shrink-0 bg-bg-surface border-l border-border-default flex flex-col relative" style={{ width }}>
+    <div className="h-full bg-bg-surface border border-border-default rounded flex flex-col relative" style={{ width }}>
       {/* Drag handle — extends slightly left beyond the panel border for easier grabbing */}
       <div
         onMouseDown={handleDragStart}
