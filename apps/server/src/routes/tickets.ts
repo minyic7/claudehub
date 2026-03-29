@@ -355,7 +355,11 @@ tickets.patch("/:number", async (c) => {
 
       // Stop CC + release slot
       const { stopTicketCC, scheduleNext } = await import("../services/cc/manager.js");
-      await stopTicketCC(projectId, number);
+      try {
+        await stopTicketCC(projectId, number);
+      } catch (err) {
+        console.warn("Failed to stop Ticket CC:", err);
+      }
 
       // Discard changes + rebase to base
       try {
@@ -367,7 +371,7 @@ tickets.patch("/:number", async (c) => {
         console.warn("Failed to reset worktree:", err);
       }
 
-      // Schedule queued tickets into freed slot
+      // Schedule queued tickets into freed slot (always run, even if stop failed)
       scheduleNext();
     }
 
@@ -399,8 +403,13 @@ tickets.patch("/:number", async (c) => {
       updates.returnReason = undefined;
 
       // Stop CC + release slot
-      const { stopTicketCC } = await import("../services/cc/manager.js");
-      await stopTicketCC(projectId, number);
+      const { stopTicketCC, scheduleNext } = await import("../services/cc/manager.js");
+      try {
+        await stopTicketCC(projectId, number);
+      } catch (err) {
+        console.warn("Failed to stop Ticket CC:", err);
+      }
+      scheduleNext();
     }
 
     if (from === "reviewing" && to === "in_progress") {
@@ -428,7 +437,7 @@ tickets.patch("/:number", async (c) => {
   }
 
   const updated = await db.updateTicket(projectId, number, updates);
-  broadcastEvent("ticket:updated", projectId, { ticket: updated });
+  broadcastEvent("ticket:updated", projectId, { number, changes: updates });
 
   return c.json(updated);
 });
@@ -649,6 +658,27 @@ async function doMerge(
     prNumber,
   );
 
+  // Mark as merged IMMEDIATELY after PR merge — prevents webhook race condition
+  // (issues.closed webhook can arrive before CD wait completes)
+  await db.updateTicket(projectId, number, { status: "merged", ccStatus: "completed" });
+  broadcastEvent("merge:progress", projectId, { number, status: "merged" });
+  broadcastEvent("ticket:status_changed", projectId, {
+    number,
+    from: "reviewing",
+    to: "merged",
+    ccStatus: "completed",
+  });
+
+  // Clean up worktree and branch
+  try {
+    await git.removeWorktree(project.owner, project.repo, ticket.branchName);
+    await github.deleteBranch(
+      project.githubToken, project.owner, project.repo, ticket.branchName,
+    );
+  } catch {
+    // ignore cleanup errors
+  }
+
   // Wait for CD on base branch — only if repo has workflows configured
   // Check both base branch and the feature branch (in case this merge introduced workflows)
   const hasCd =
@@ -660,7 +690,7 @@ async function doMerge(
     // Renew merge lock TTL since CD wait can be long
     const lockRenewed = await db.renewMergeLock(projectId);
     if (!lockRenewed) {
-      throw new Error("Merge lock expired during merge — another merge may have started");
+      console.warn("Merge lock expired during CD wait — releasing");
     }
     try {
       const cd = await waitForCD(project, 300_000);
@@ -668,7 +698,7 @@ async function doMerge(
         broadcastEvent("merge:progress", projectId, {
           number,
           status: "cd_failed",
-          message: "CD failed on base branch — ticket is merged but deployment may need attention",
+          message: "CD failed on base branch — urgent fix ticket will be auto-created",
         });
       }
     } catch (err) {
@@ -676,33 +706,13 @@ async function doMerge(
       broadcastEvent("merge:progress", projectId, {
         number,
         status: "cd_timeout",
-        message: "CD did not complete in time, proceeding",
+        message: "CD did not complete in time",
       });
     }
   }
 
-  // Update ticket status
-  await db.updateTicket(projectId, number, { status: "merged", ccStatus: "completed" });
-
-  // Clean up
-  try {
-    await git.removeWorktree(project.owner, project.repo, ticket.branchName);
-    await github.deleteBranch(
-      project.githubToken, project.owner, project.repo, ticket.branchName,
-    );
-  } catch {
-    // ignore cleanup errors
-  }
-
   await db.releaseMergeLock(projectId);
-
   await db.clearMergeProgress(projectId);
-  broadcastEvent("merge:progress", projectId, { number, status: "merged" });
-  broadcastEvent("ticket:status_changed", projectId, {
-    number,
-    from: "reviewing",
-    to: "merged",
-  });
 
   // Update kanban worktree to include the merge, then notify Kanban CC
   try {

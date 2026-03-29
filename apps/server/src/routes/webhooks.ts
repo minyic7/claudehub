@@ -126,7 +126,7 @@ async function handleIssueEvent(
       });
       broadcastEvent("ticket:updated", project.id, {
         number: ticket.number,
-        field: "description",
+        changes: { description: issue.body },
       });
     }
   }
