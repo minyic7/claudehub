@@ -137,6 +137,10 @@ const schedulePending = { value: false };
 /** Kill all CC processes (for graceful shutdown) */
 export function shutdownAll(): void {
   const keys = getAllPTYKeys();
+  // Send graceful shutdown message to all CCs before killing
+  for (const key of keys) {
+    writeToPTY(key, "\n[SYSTEM] Server is restarting. Your session will be resumed automatically after restart.\r");
+  }
   for (const key of keys) {
     killPTY(key);
   }
