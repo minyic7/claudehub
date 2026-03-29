@@ -11,8 +11,8 @@ import CatScene from "./CatScene.js";
 const MIN_WIDTH = 375;
 const DEFAULT_WIDTH = 420;
 const STORAGE_KEY = "claudehub:terminal-width";
-// Reserve space for at least 1 column (COL_BASE_WIDTH + padding + borders + breathing room)
-const MIN_BOARD_WIDTH = 280;
+// Reserve space for board: 1 column + column tab bar fully visible without scroll
+const MIN_BOARD_WIDTH = 400;
 
 const MIN_HEIGHT = 200;
 const DEFAULT_HEIGHT = 300;
