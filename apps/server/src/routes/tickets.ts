@@ -702,7 +702,9 @@ async function doMerge(
     }
     try {
       const cd = await waitForCD(project, 300_000);
-      if (!cd.passed) {
+      if (cd.passed) {
+        broadcastEvent("merge:progress", projectId, { number, status: "cd_passed" });
+      } else {
         broadcastEvent("merge:progress", projectId, {
           number,
           status: "cd_failed",

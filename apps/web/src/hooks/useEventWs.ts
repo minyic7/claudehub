@@ -47,6 +47,7 @@ export function useEventWs(projectId: string | undefined) {
             case "merge:progress":
               store.handleMergeProgress(d as Parameters<typeof store.handleMergeProgress>[0]);
               if (d.status === "merged") toast.success(`Ticket #${d.number} merged`);
+              else if (d.status === "cd_passed") toast.success(`CD passed for ticket #${d.number}`);
               else if (d.status === "failed") toast.error(`Merge failed: ${d.error || "unknown error"}`);
               else if (d.status === "cd_failed") toast.error(`CD failed for ticket #${d.number} — urgent fix ticket will be created`);
               else if (d.status === "cd_timeout") toast.warning(`CD timed out for ticket #${d.number}`);

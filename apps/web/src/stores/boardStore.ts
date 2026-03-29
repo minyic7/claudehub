@@ -207,6 +207,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         );
         return { columns, stats: recalcStats(columns) };
       }
+      if (data.status === "cd_passed") {
+        // CD succeeded — clear mergeStep tag
+        return {
+          columns: updateTicketInColumns(state.columns, data.number, { mergeStep: undefined }),
+        };
+      }
       return {
         columns: updateTicketInColumns(state.columns, data.number, { mergeStep: data.status }),
       };
