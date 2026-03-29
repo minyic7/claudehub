@@ -250,6 +250,11 @@ export async function startKanbanCC(
     WORKTREE_PATH: worktreePath,
     CLAUDEHUB_TOKEN: generateServiceToken(),
   };
+  // Inject GitHub token so CC can access GitHub API (gh CLI, curl)
+  if (project?.githubToken) {
+    ccEnv.GITHUB_TOKEN = project.githubToken;
+    ccEnv.GH_TOKEN = project.githubToken;
+  }
 
   ensureTrusted(worktreePath);
 
@@ -427,6 +432,11 @@ async function doStartTicketCC(
     WORKTREE_PATH: ticket.worktreePath,
     CLAUDEHUB_TOKEN: generateServiceToken(),
   };
+  // Inject GitHub token so CC can access GitHub API (gh CLI, curl)
+  if (project?.githubToken) {
+    ccEnv.GITHUB_TOKEN = project.githubToken;
+    ccEnv.GH_TOKEN = project.githubToken;
+  }
 
   ensureTrusted(ticket.worktreePath);
 
@@ -643,7 +653,7 @@ export async function recoverOnStartup(): Promise<void> {
           project.owner, project.repo, project.baseBranch,
         );
         const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
-        const systemPrompt = buildKanbanSystemPrompt(project.id, project.name, apiBaseUrl);
+        const systemPrompt = buildKanbanSystemPrompt(project.id, project.name, apiBaseUrl, project.owner, project.repo);
         const settings = await db.getSettings();
         const env: Record<string, string> = {};
         if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;

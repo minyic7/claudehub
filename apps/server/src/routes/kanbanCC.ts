@@ -52,7 +52,7 @@ kanbanCC.post("/", async (c) => {
   }
 
   const apiBaseUrl = `http://localhost:${process.env.PORT || 7700}`;
-  const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl);
+  const systemPrompt = buildKanbanSystemPrompt(projectId, project.name, apiBaseUrl, project.owner, project.repo);
 
   // Admin uses mounted credential; non-admin uses API key
   const env: Record<string, string> = {};
