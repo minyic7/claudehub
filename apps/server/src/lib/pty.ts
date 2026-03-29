@@ -121,6 +121,8 @@ export function getPTY(key: string): PTYInstance | undefined {
 export function killPTY(key: string): void {
   const instance = instances.get(key);
   if (instance) {
+    // Preserve ring buffer before removing instance (onExit may fire after delete)
+    orphanedBuffers.set(key, instance.ringBuffer);
     try {
       instance.pty.kill();
     } catch {

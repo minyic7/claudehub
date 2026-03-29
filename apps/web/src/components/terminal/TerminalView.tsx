@@ -11,6 +11,8 @@ interface TerminalViewProps {
   onExit?: () => void;
   /** Pass the panel's current pixel width so we can re-fit on drag resize */
   panelWidth?: number;
+  /** If true, terminal is read-only (CC exited, showing history) */
+  readOnly?: boolean;
 }
 
 const FIT_DEBOUNCE_MS = 80;
@@ -21,6 +23,7 @@ export default function TerminalView({
   ticketNumber,
   onExit,
   panelWidth,
+  readOnly,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -105,7 +108,7 @@ export default function TerminalView({
 
   return (
     <div className="flex-1 relative">
-      {!connected && (
+      {!connected && !readOnly && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-base/80 z-10">
           <span className="font-pixel text-[8px] text-text-secondary">
             Connecting...

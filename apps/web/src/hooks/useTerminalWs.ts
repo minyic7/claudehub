@@ -65,10 +65,10 @@ export function useTerminalWs({
       setConnected(false);
       wsRef.current = null;
 
-      // 1011 = PTY not running. If we were previously connected, the process exited.
-      if (e.code === 1011 && wasConnectedRef.current) {
-        onExitRef.current?.();
-        return; // Don't reconnect
+      // 1011 = PTY not running — don't reconnect
+      if (e.code === 1011) {
+        if (wasConnectedRef.current) onExitRef.current?.();
+        return;
       }
 
       if (!cleanedUpRef.current) {

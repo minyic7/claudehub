@@ -378,16 +378,21 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
         </div>
       )}
 
-      {activeTicketTab !== null && (
-        <div className="flex-1 overflow-hidden flex">
-          <TerminalView
-            type="ticket"
-            projectId={projectId}
-            ticketNumber={activeTicketTab}
-            panelWidth={width}
-          />
-        </div>
-      )}
+      {activeTicketTab !== null && (() => {
+        const ticket = columns.flatMap((c) => c.tickets).find((t) => t.number === activeTicketTab);
+        const isReadOnly = ticket?.ccStatus === "completed";
+        return (
+          <div className="flex-1 overflow-hidden flex">
+            <TerminalView
+              type="ticket"
+              projectId={projectId}
+              ticketNumber={activeTicketTab}
+              panelWidth={width}
+              readOnly={isReadOnly}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
