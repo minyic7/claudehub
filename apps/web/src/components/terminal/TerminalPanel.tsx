@@ -8,9 +8,15 @@ import type { CCSession } from "@claudehub/shared";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
-const MIN_WIDTH = 300;
+const MIN_WIDTH = 375;
 const DEFAULT_WIDTH = 420;
 const STORAGE_KEY = "claudehub:terminal-width";
+// Reserve space for at least 1 column (must match KanbanBoard constants)
+const MIN_BOARD_WIDTH = 200 + 16; // COL_BASE_WIDTH + BOARD_PAD
+
+const MIN_HEIGHT = 200;
+const DEFAULT_HEIGHT = 300;
+const HEIGHT_STORAGE_KEY = "claudehub:terminal-height";
 
 function loadWidth(): number {
   try {
@@ -21,6 +27,17 @@ function loadWidth(): number {
     }
   } catch {}
   return DEFAULT_WIDTH;
+}
+
+function loadHeight(): number {
+  try {
+    const v = localStorage.getItem(HEIGHT_STORAGE_KEY);
+    if (v) {
+      const n = Number(v);
+      if (n >= MIN_HEIGHT) return n;
+    }
+  } catch {}
+  return DEFAULT_HEIGHT;
 }
 
 function formatTime(iso: string): string {
@@ -35,9 +52,10 @@ function formatTime(iso: string): string {
 
 interface TerminalPanelProps {
   projectId: string;
+  isMobile?: boolean;
 }
 
-export default function TerminalPanel({ projectId }: TerminalPanelProps) {
+export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProps) {
   const { activeTab, panelCollapsed } = useTerminalStore();
   const switchTab = useTerminalStore((s) => s.switchTab);
   const kanbanCCStatus = useBoardStore((s) => s.kanbanCCStatus);
@@ -61,7 +79,22 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   }, [activeTab, activeTicketNumbers, switchTab]);
 
   const [width, setWidth] = useState(loadWidth);
+  const [height, setHeight] = useState(loadHeight);
   const draggingRef = useRef(false);
+
+  // Mobile full-screen expansion
+  const [expanded, setExpanded] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+
+  // Track visualViewport height for keyboard-aware sizing on mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setViewportHeight(vv.height);
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [isMobile]);
 
   const kanbanRunning = kanbanCCStatus === "running";
 
@@ -140,7 +173,9 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     draggingRef.current = true;
     const startX = e.clientX;
     const startWidth = width;
-    const maxWidth = window.innerWidth - 48; // leave a small margin
+    const containerEl = (e.currentTarget as HTMLElement).closest("[data-board-layout]");
+    const containerW = containerEl ? containerEl.clientWidth : window.innerWidth;
+    const maxWidth = containerW - MIN_BOARD_WIDTH;
 
     const onMove = (ev: MouseEvent) => {
       if (!draggingRef.current) return;
@@ -163,6 +198,35 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, [width]);
+
+  const handleVerticalDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    const startY = e.clientY;
+    const startHeight = height;
+    const maxHeight = window.innerHeight - 120; // leave room for header + board
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const delta = startY - ev.clientY;
+      setHeight(Math.min(maxHeight, Math.max(MIN_HEIGHT, startHeight + delta)));
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setHeight((h) => {
+        localStorage.setItem(HEIGHT_STORAGE_KEY, String(Math.round(h)));
+        return h;
+      });
+    };
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [height]);
 
   const handleStopKanbanCC = async () => {
     setCcLoading(true);
@@ -196,12 +260,14 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   if (panelCollapsed) {
     return (
       <div
-        className="w-9 h-full bg-bg-surface border border-border-default rounded flex items-center justify-center cursor-pointer hover:bg-bg-elevated transition-colors"
+        className={`bg-bg-surface border border-border-default rounded flex items-center justify-center cursor-pointer hover:bg-bg-elevated transition-colors ${
+          isMobile ? "w-full h-8 shrink-0" : "w-9 h-full"
+        }`}
         onClick={() => {
           useTerminalStore.setState({ panelCollapsed: false });
         }}
       >
-        <span className="font-pixel text-[8px] text-text-muted [writing-mode:vertical-lr]">
+        <span className={`font-pixel text-[8px] text-text-muted ${isMobile ? "" : "[writing-mode:vertical-lr]"}`}>
           TERMINAL
         </span>
       </div>
@@ -211,15 +277,37 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const isKanbanTab = activeTab === "kanban";
   const activeTicketTab = typeof activeTab === "number" ? activeTab : null;
 
+  const mobileExpanded = isMobile && expanded;
+  const panelStyle: React.CSSProperties = mobileExpanded
+    ? { position: "fixed", inset: 0, height: viewportHeight, zIndex: 50 }
+    : isMobile
+      ? { height }
+      : { width };
+  const panelWidth = isMobile ? window.innerWidth : width;
+
   return (
-    <div className="h-full bg-bg-surface border border-border-default rounded flex flex-col relative shrink-0" style={{ width }}>
-      {/* Drag handle — extends slightly left beyond the panel border for easier grabbing */}
-      <div
-        onMouseDown={handleDragStart}
-        className="absolute -left-1 top-0 bottom-0 w-3 cursor-col-resize hover:bg-accent/40 transition-colors z-20"
-      />
+    <div
+      className={`bg-bg-surface border border-border-default flex flex-col relative shrink-0 ${
+        mobileExpanded ? "rounded-none" : "rounded"
+      } ${isMobile && !mobileExpanded ? "w-full" : ""} ${!isMobile ? "h-full" : ""}`}
+      style={panelStyle}
+    >
+      {/* Drag handle — only in split mode */}
+      {!mobileExpanded && (
+        isMobile ? (
+          <div
+            onMouseDown={handleVerticalDragStart}
+            className="absolute -top-1 left-0 right-0 h-3 cursor-row-resize hover:bg-accent/40 transition-colors z-20"
+          />
+        ) : (
+          <div
+            onMouseDown={handleDragStart}
+            className="absolute -left-1 top-0 bottom-0 w-3 cursor-col-resize hover:bg-accent/40 transition-colors z-20"
+          />
+        )
+      )}
       {/* Tab bar */}
-      <div className="flex border-b border-border-default overflow-x-auto">
+      <div className="flex border-b border-border-default overflow-x-auto shrink-0">
         <button
           onClick={() => switchTab("kanban")}
           className={`shrink-0 font-pixel text-[8px] px-3 py-2 transition-colors cursor-pointer ${
@@ -244,13 +332,23 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
           </button>
         ))}
         <div className="flex-1" />
+        {/* Mobile: expand/collapse toggle */}
+        {isMobile && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="shrink-0 font-pixel text-[8px] text-text-muted hover:text-text-secondary px-2 cursor-pointer"
+          >
+            {expanded ? "SPLIT" : "FULL"}
+          </button>
+        )}
         <button
-          onClick={() =>
-            useTerminalStore.setState({ panelCollapsed: true })
-          }
+          onClick={() => {
+            setExpanded(false);
+            useTerminalStore.setState({ panelCollapsed: true });
+          }}
           className="shrink-0 font-pixel text-[8px] text-text-muted hover:text-text-secondary px-2 cursor-pointer"
         >
-          {"<<"}
+          {isMobile ? "HIDE" : "<<"}
         </button>
       </div>
 
@@ -320,7 +418,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                 )}
               </div>
               <div className="flex-1 overflow-hidden flex">
-                <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
+                <TerminalView type="kanban" projectId={projectId} panelWidth={panelWidth} />
               </div>
             </div>
           ) : (
@@ -385,7 +483,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               type="ticket"
               projectId={projectId}
               ticketNumber={activeTicketTab}
-              panelWidth={width}
+              panelWidth={panelWidth}
               readOnly={isReadOnly}
             />
           </div>

@@ -99,11 +99,15 @@ export default function TerminalView({
     debouncedFit();
   }, [panelWidth, debouncedFit]);
 
-  // Handle window resize (vertical changes etc.)
+  // Handle window resize and visualViewport resize (mobile keyboard)
   useEffect(() => {
-    const onWindowResize = () => debouncedFit();
-    window.addEventListener("resize", onWindowResize);
-    return () => window.removeEventListener("resize", onWindowResize);
+    const onResize = () => debouncedFit();
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
+    };
   }, [debouncedFit]);
 
   return (
