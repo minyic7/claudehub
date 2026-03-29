@@ -32,7 +32,7 @@ export default function Column({ column, onTicketClick }: ColumnProps) {
 
   return (
     <div
-      className={`flex flex-col flex-1 min-w-[200px] bg-bg-base border-t-2 ${columnColors[column.status] || "border-t-border-default"} ${isOver ? "bg-accent/5" : ""} transition-colors`}
+      className={`flex flex-col flex-1 bg-bg-base border-t-2 ${columnColors[column.status] || "border-t-border-default"} ${isOver ? "bg-accent/5" : ""} transition-colors`}
     >
       {/* Column header */}
       <div className="flex items-center justify-between px-3 py-2">

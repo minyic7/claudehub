@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -9,13 +9,17 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useState } from "react";
 import type { BoardColumn as BoardColumnType, Ticket, TicketStatus } from "@claudehub/shared";
 import { useBoardStore } from "../../stores/boardStore.js";
 import Column from "./Column.js";
 import Badge from "../ui/Badge.js";
 import { truncate } from "../../lib/utils.js";
 import { toast } from "sonner";
+
+/** Minimum column width used to calculate how many columns fit */
+const COL_BASE_WIDTH = 200;
+const COL_GAP = 8;    // gap-2
+const BOARD_PAD = 16; // p-2 on each side
 
 interface KanbanBoardProps {
   columns: BoardColumnType[];
@@ -30,6 +34,33 @@ export default function KanbanBoard({
 }: KanbanBoardProps) {
   const { moveTicket, reorderTicket } = useBoardStore();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
+  const [visibleCount, setVisibleCount] = useState(columns.length);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Observe container width and calculate how many columns fit
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const calc = (w: number) => {
+      // How many columns fit: w >= BOARD_PAD + n * COL_BASE_WIDTH + (n-1) * COL_GAP
+      // Solve: n <= (w - BOARD_PAD + COL_GAP) / (COL_BASE_WIDTH + COL_GAP)
+      const n = Math.floor((w - BOARD_PAD + COL_GAP) / (COL_BASE_WIDTH + COL_GAP));
+      setVisibleCount(Math.max(0, Math.min(columns.length, n)));
+    };
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        calc(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    calc(el.clientWidth);
+
+    return () => ro.disconnect();
+  }, [columns.length]);
+
+  const visibleColumns = columns.slice(0, visibleCount);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -96,8 +127,8 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-2 h-full p-2">
-        {columns.map((col) => (
+      <div ref={containerRef} className="flex gap-2 h-full p-2">
+        {visibleColumns.map((col) => (
           <Column
             key={col.status}
             column={col}
