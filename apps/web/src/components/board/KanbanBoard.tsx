@@ -135,14 +135,14 @@ export default function KanbanBoard({
       <div className="flex flex-col h-full">
         {/* Column selector tabs — shown when not all columns fit */}
         {showColumnTabs && (
-          <div className="flex border-b border-border-default px-2 pt-1 gap-1 overflow-x-auto shrink-0">
+          <div className="flex border-b border-border-default shrink-0">
             {columns.map((col, idx) => {
               const isVisible = idx >= startIndex && idx < startIndex + visibleCount;
               return (
                 <button
                   key={col.status}
                   onClick={() => setStartIndex(Math.min(idx, columns.length - visibleCount))}
-                  className={`shrink-0 font-pixel text-[8px] px-2 py-1.5 transition-colors cursor-pointer ${
+                  className={`flex-1 font-pixel text-[8px] py-1.5 transition-colors cursor-pointer text-center ${
                     isVisible
                       ? "text-accent border-b border-accent"
                       : "text-text-muted hover:text-text-secondary"
