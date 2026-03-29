@@ -182,11 +182,11 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     draggingRef.current = true;
     const startX = e.clientX;
     const startWidth = rawWidth;
-    const maxWidth = getMaxWidth();
 
     const onMove = (ev: MouseEvent) => {
       if (!draggingRef.current) return;
       const delta = startX - ev.clientX;
+      const maxWidth = getMaxWidth(); // recalculate each move for accuracy
       setRawWidth(Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta)));
     };
     const onUp = () => {
