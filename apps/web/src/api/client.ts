@@ -88,15 +88,15 @@ export const api = {
     request<void>(`/projects/${projectId}/kanban-cc/sessions/${sessionId}`, { method: "DELETE" }),
 
   // Pilot Mode
-  startPilot: (projectId: string, goal: string, minInterval?: number, maxInterval?: number) =>
+  startPilot: (projectId: string, goal: string, idleTimeout?: number) =>
     request<{ active: boolean }>(`/projects/${projectId}/kanban-cc/pilot`, {
       method: "POST",
-      body: JSON.stringify({ goal, minInterval, maxInterval }),
+      body: JSON.stringify({ goal, idleTimeout }),
     }),
   stopPilot: (projectId: string) =>
     request<{ active: boolean }>(`/projects/${projectId}/kanban-cc/pilot`, { method: "DELETE" }),
   getPilotStatus: (projectId: string) =>
-    request<{ active: boolean; goal?: string; minInterval?: number; maxInterval?: number }>(`/projects/${projectId}/kanban-cc/pilot`),
+    request<{ active: boolean; goal?: string; idleTimeout?: number }>(`/projects/${projectId}/kanban-cc/pilot`),
 
   // Ticket CC
   startTicketCC: (projectId: string, number: number, opts?: { apiKey?: string | null; sessionId?: string }) =>

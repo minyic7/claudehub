@@ -123,19 +123,14 @@ kanbanCC.delete("/", async (c) => {
 // POST /api/projects/:projectId/kanban-cc/pilot
 kanbanCC.post("/pilot", async (c) => {
   const projectId = c.req.param("projectId")!;
-  const body = await c.req.json<{ goal: string; minInterval?: number; maxInterval?: number }>();
+  const body = await c.req.json<{ goal: string; idleTimeout?: number }>();
 
   if (!body.goal) return c.json({ error: "goal required" }, 400);
   if (!ccManager.isKanbanCCRunning(projectId)) {
     return c.json({ error: "Kanban CC not running" }, 400);
   }
 
-  startPilot(
-    projectId,
-    body.goal,
-    body.minInterval ?? 30,
-    body.maxInterval ?? 120,
-  );
+  startPilot(projectId, body.goal, body.idleTimeout ?? 5);
 
   return c.json({ active: true }, 201);
 });

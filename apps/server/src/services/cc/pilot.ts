@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { getRingBuffer } from "../../lib/pty.js";
+import { getRingBuffer, onPTYOutput } from "../../lib/pty.js";
 import { sendToKanbanCC, isKanbanCCRunning } from "./manager.js";
 import { broadcastEvent } from "../../lib/broadcast.js";
 
@@ -9,41 +9,44 @@ const exec = promisify(execFile);
 interface PilotState {
   projectId: string;
   goal: string;
-  minInterval: number; // seconds
-  maxInterval: number; // seconds
+  idleTimeout: number; // seconds
   timer: ReturnType<typeof setTimeout> | null;
   running: boolean;
   lastNudge: string | null;
+  unsubscribe: (() => void) | null; // PTY output listener cleanup
+  nudging: boolean; // prevent concurrent nudges
 }
 
 const pilots = new Map<string, PilotState>();
 
-function randomInterval(min: number, max: number): number {
-  return (min + Math.random() * (max - min)) * 1000;
-}
-
-/** Extract last N lines of text from ring buffer */
+/** Extract last N chars of text from ring buffer */
 function getRecentOutput(projectId: string, maxChars = 4000): string {
   const key = `kanban:${projectId}`;
   const ringBuffer = getRingBuffer(key);
   if (!ringBuffer) return "(no terminal output available)";
   const history = ringBuffer.getHistory().toString("utf-8");
-  // Take last maxChars to stay within prompt limits
   if (history.length > maxChars) {
     return history.slice(-maxChars);
   }
   return history || "(terminal is empty)";
 }
 
-async function nudge(state: PilotState): Promise<void> {
+/** Reset the idle timer — called on every PTY output */
+function resetIdleTimer(state: PilotState): void {
   if (!state.running) return;
+  if (state.timer) clearTimeout(state.timer);
+  state.timer = setTimeout(() => nudge(state), state.idleTimeout * 1000);
+}
+
+async function nudge(state: PilotState): Promise<void> {
+  if (!state.running || state.nudging) return;
 
   if (!isKanbanCCRunning(state.projectId)) {
-    console.log(`[pilot] Kanban CC not running for ${state.projectId}, skipping nudge`);
-    scheduleNext(state);
-    return;
+    console.log(`[pilot] Kanban CC not running for ${state.projectId}, waiting for output`);
+    return; // Don't reset timer — PTY output listener will restart it when CC is back
   }
 
+  state.nudging = true;
   const recentOutput = getRecentOutput(state.projectId);
 
   const prompt = `You are an autopilot assistant monitoring a Kanban CC (project manager AI) that manages a software project.
@@ -57,14 +60,14 @@ ${recentOutput}
 \`\`\`
 
 ## Your Task
-Based on the terminal output, decide what to say to nudge the Kanban CC. Consider:
+The Kanban CC has been idle (no terminal output) for ${state.idleTimeout} seconds.
+Based on the terminal output, decide what to say to nudge it. Consider:
 - Is it idle/waiting? → Remind it of the goal and tell it to check the board and start working
-- Is it actively working? → Just say "keep going" or provide brief encouragement
 - Is it asking a question? → Answer it based on the project goal
 - Is it stuck or erroring? → Suggest a fix or alternative approach
 - Did it just finish something? → Tell it to check what's next on the board
 
-Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sentences). If it's actively busy and doesn't need intervention, respond with exactly "SKIP" (nothing else).`;
+Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sentences).`;
 
   try {
     const { stdout } = await exec("claude", ["-p", prompt], {
@@ -73,9 +76,7 @@ Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sen
     });
 
     const message = stdout.trim();
-    if (!message || message === "SKIP") {
-      console.log(`[pilot] Kanban CC is busy, skipping nudge for ${state.projectId}`);
-    } else {
+    if (message) {
       console.log(`[pilot] Nudging Kanban CC for ${state.projectId}: ${message.slice(0, 80)}...`);
       sendToKanbanCC(state.projectId, message);
       state.lastNudge = new Date().toISOString();
@@ -84,21 +85,15 @@ Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sen
     console.warn(`[pilot] claude -p failed for ${state.projectId}:`, err);
   }
 
-  scheduleNext(state);
-}
-
-function scheduleNext(state: PilotState): void {
-  if (!state.running) return;
-  const delay = randomInterval(state.minInterval, state.maxInterval);
-  console.log(`[pilot] Next check for ${state.projectId} in ${Math.round(delay / 1000)}s`);
-  state.timer = setTimeout(() => nudge(state), delay);
+  state.nudging = false;
+  // After nudge, reset timer to wait for output again
+  resetIdleTimer(state);
 }
 
 export function startPilot(
   projectId: string,
   goal: string,
-  minInterval = 30,
-  maxInterval = 120,
+  idleTimeout = 5,
 ): void {
   // Stop existing pilot if any
   stopPilot(projectId);
@@ -106,18 +101,24 @@ export function startPilot(
   const state: PilotState = {
     projectId,
     goal,
-    minInterval,
-    maxInterval,
+    idleTimeout,
     timer: null,
     running: true,
     lastNudge: null,
+    unsubscribe: null,
+    nudging: false,
   };
+
+  // Listen to PTY output — reset idle timer on every output
+  const key = `kanban:${projectId}`;
+  state.unsubscribe = onPTYOutput(key, () => resetIdleTimer(state));
 
   pilots.set(projectId, state);
   broadcastEvent("pilot:status_changed", projectId, { active: true, goal });
 
-  // First nudge immediately
-  nudge(state);
+  // Start the idle timer
+  resetIdleTimer(state);
+  console.log(`[pilot] Started for ${projectId}, idle timeout: ${idleTimeout}s`);
 }
 
 export function stopPilot(projectId: string): void {
@@ -125,6 +126,7 @@ export function stopPilot(projectId: string): void {
   if (state) {
     state.running = false;
     if (state.timer) clearTimeout(state.timer);
+    if (state.unsubscribe) state.unsubscribe();
     pilots.delete(projectId);
     broadcastEvent("pilot:status_changed", projectId, { active: false });
   }
@@ -133,8 +135,7 @@ export function stopPilot(projectId: string): void {
 export function getPilotStatus(projectId: string): {
   active: boolean;
   goal?: string;
-  minInterval?: number;
-  maxInterval?: number;
+  idleTimeout?: number;
   lastNudge?: string | null;
 } {
   const state = pilots.get(projectId);
@@ -142,8 +143,7 @@ export function getPilotStatus(projectId: string): {
   return {
     active: true,
     goal: state.goal,
-    minInterval: state.minInterval,
-    maxInterval: state.maxInterval,
+    idleTimeout: state.idleTimeout,
     lastNudge: state.lastNudge,
   };
 }

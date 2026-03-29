@@ -116,8 +116,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
   const [pilotLoading, setPilotLoading] = useState(false);
   const [showPilotForm, setShowPilotForm] = useState(false);
   const [pilotGoal, setPilotGoal] = useState("");
-  const [pilotMin, setPilotMin] = useState(30);
-  const [pilotMax, setPilotMax] = useState(120);
+  const [pilotIdleTimeout, setPilotIdleTimeout] = useState(5);
 
   // Fetch pilot status when kanban is running
   useEffect(() => {
@@ -134,7 +133,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     if (!pilotGoal.trim()) return;
     setPilotLoading(true);
     try {
-      await api.startPilot(projectId, pilotGoal.trim(), pilotMin, pilotMax);
+      await api.startPilot(projectId, pilotGoal.trim(), pilotIdleTimeout);
       setPilotActive(true);
       setShowPilotForm(false);
     } catch (err) {
@@ -398,18 +397,11 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
                       className="font-pixel text-[7px] bg-bg-base border border-border-default rounded px-2 py-1 text-text-primary placeholder:text-text-muted outline-none focus:border-accent/60"
                     />
                     <div className="flex items-center gap-2">
-                      <label className="font-pixel text-[6px] text-text-muted">MIN</label>
+                      <label className="font-pixel text-[6px] text-text-muted">IDLE</label>
                       <input
                         type="number"
-                        value={pilotMin}
-                        onChange={(e) => setPilotMin(Number(e.target.value) || 30)}
-                        className="w-12 font-pixel text-[7px] bg-bg-base border border-border-default rounded px-1 py-0.5 text-text-primary outline-none focus:border-accent/60"
-                      />
-                      <label className="font-pixel text-[6px] text-text-muted">MAX</label>
-                      <input
-                        type="number"
-                        value={pilotMax}
-                        onChange={(e) => setPilotMax(Number(e.target.value) || 120)}
+                        value={pilotIdleTimeout}
+                        onChange={(e) => setPilotIdleTimeout(Math.max(1, Number(e.target.value) || 5))}
                         className="w-12 font-pixel text-[7px] bg-bg-base border border-border-default rounded px-1 py-0.5 text-text-primary outline-none focus:border-accent/60"
                       />
                       <span className="font-pixel text-[6px] text-text-muted">sec</span>

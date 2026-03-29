@@ -61,6 +61,24 @@ const instances = new Map<string, PTYInstance>();
 // Ring buffers preserved after PTY exit, for viewing terminal history
 const orphanedBuffers = new Map<string, RingBuffer>();
 
+// Output listeners: called whenever PTY produces output
+type OutputListener = () => void;
+const outputListeners = new Map<string, Set<OutputListener>>();
+
+/** Register a listener that fires whenever the PTY with `key` produces output */
+export function onPTYOutput(key: string, listener: OutputListener): () => void {
+  let listeners = outputListeners.get(key);
+  if (!listeners) {
+    listeners = new Set();
+    outputListeners.set(key, listeners);
+  }
+  listeners.add(listener);
+  return () => {
+    listeners!.delete(listener);
+    if (listeners!.size === 0) outputListeners.delete(key);
+  };
+}
+
 export function spawnPTY(
   key: string,
   command: string,
@@ -91,6 +109,11 @@ export function spawnPTY(
     const buf = Buffer.from(data);
     ringBuffer.write(buf);
     onData?.(buf);
+    // Notify output listeners
+    const listeners = outputListeners.get(key);
+    if (listeners) {
+      for (const fn of listeners) fn();
+    }
   });
 
   ptyProcess.onExit(({ exitCode }) => {
