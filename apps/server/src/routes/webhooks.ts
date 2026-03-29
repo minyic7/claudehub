@@ -145,7 +145,7 @@ async function handlePushEvent(
     const ticket = await db.getTicketByBranch(project.id, branchName);
     if (ticket) {
       const hasCi = await github.hasWorkflows(
-        project.githubToken, project.owner, project.repo,
+        project.githubToken, project.owner, project.repo, branchName,
       );
       if (!hasCi) {
         const { sendToTicketCC, isTicketCCRunning } = await import("../services/cc/manager.js");

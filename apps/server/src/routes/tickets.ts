@@ -374,7 +374,7 @@ tickets.patch("/:number", async (c) => {
     if (to === "reviewing") {
       // Check CI status before allowing reviewing — only if repo has workflows
       try {
-        const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+        const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo, ticket.branchName);
         if (hasCI) {
           const ci = await github.getCIStatus(
             project.githubToken, project.owner, project.repo, ticket.branchName,
@@ -547,7 +547,7 @@ tickets.post("/:number/merge", async (c) => {
 
   // Check CI — only if repo has workflow files
   try {
-    const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+    const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo, ticket.branchName);
     if (hasCI) {
       const ci = await github.getCIStatus(
         project.githubToken, project.owner, project.repo, ticket.branchName,

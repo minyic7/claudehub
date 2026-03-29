@@ -106,6 +106,7 @@ export async function hasWorkflows(
   token: string,
   owner: string,
   repo: string,
+  ref?: string,
 ): Promise<boolean> {
   const octokit = getClient(token);
   try {
@@ -113,6 +114,7 @@ export async function hasWorkflows(
       owner,
       repo,
       path: ".github/workflows",
+      ...(ref ? { ref } : {}),
     });
     return Array.isArray(data) && data.some((f) => f.name.endsWith(".yml") || f.name.endsWith(".yaml"));
   } catch {
