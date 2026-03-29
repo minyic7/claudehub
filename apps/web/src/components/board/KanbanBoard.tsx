@@ -106,11 +106,7 @@ export default function KanbanBoard({
             onTicketClick={onTicketClick}
           />
         ))}
-        {children && (
-          <div className="sticky right-0 shrink-0 z-10">
-            {children}
-          </div>
-        )}
+        {children}
       </div>
 
       <DragOverlay>
