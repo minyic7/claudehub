@@ -78,9 +78,18 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     }
   }, [activeTab, activeTicketNumbers, switchTab]);
 
-  const [width, setWidth] = useState(loadWidth);
+  const [rawWidth, setRawWidth] = useState(loadWidth);
   const [height, setHeight] = useState(loadHeight);
   const draggingRef = useRef(false);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+
+  // Clamp width to always leave room for at least 1 column
+  const getMaxWidth = useCallback(() => {
+    const el = layoutRef.current?.closest("[data-board-layout]");
+    const containerW = el ? (el as HTMLElement).clientWidth : window.innerWidth;
+    return containerW - MIN_BOARD_WIDTH;
+  }, []);
+  const width = isMobile ? rawWidth : Math.min(rawWidth, getMaxWidth());
 
   // Mobile full-screen expansion
   const [expanded, setExpanded] = useState(false);
@@ -172,15 +181,13 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     e.preventDefault();
     draggingRef.current = true;
     const startX = e.clientX;
-    const startWidth = width;
-    const containerEl = (e.currentTarget as HTMLElement).closest("[data-board-layout]");
-    const containerW = containerEl ? containerEl.clientWidth : window.innerWidth;
-    const maxWidth = containerW - MIN_BOARD_WIDTH;
+    const startWidth = rawWidth;
+    const maxWidth = getMaxWidth();
 
     const onMove = (ev: MouseEvent) => {
       if (!draggingRef.current) return;
       const delta = startX - ev.clientX;
-      setWidth(Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta)));
+      setRawWidth(Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta)));
     };
     const onUp = () => {
       draggingRef.current = false;
@@ -188,7 +195,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      setWidth((w) => {
+      setRawWidth((w) => {
         localStorage.setItem(STORAGE_KEY, String(Math.round(w)));
         return w;
       });
@@ -197,7 +204,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, [width]);
+  }, [rawWidth, getMaxWidth]);
 
   const handleVerticalDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -287,6 +294,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
 
   return (
     <div
+      ref={layoutRef}
       className={`bg-bg-surface border border-border-default flex flex-col relative shrink-0 ${
         mobileExpanded ? "rounded-none" : "rounded"
       } ${isMobile && !mobileExpanded ? "w-full" : ""} ${!isMobile ? "h-full" : ""}`}
