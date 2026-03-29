@@ -67,10 +67,11 @@ export default function BoardPage() {
         onNewTicket={() => setShowCreateTicket(true)}
       />
 
-      <div className="flex-1 overflow-hidden">
-        <KanbanBoard columns={columns} projectId={projectId} onTicketClick={handleTicketClick}>
-          <TerminalPanel projectId={projectId} />
-        </KanbanBoard>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 min-w-0">
+          <KanbanBoard columns={columns} projectId={projectId} onTicketClick={handleTicketClick} />
+        </div>
+        <TerminalPanel projectId={projectId} />
       </div>
 
       {/* Modals */}
