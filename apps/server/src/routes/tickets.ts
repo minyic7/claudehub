@@ -593,8 +593,16 @@ tickets.post("/:number/merge", async (c) => {
   doMerge(project, ticket).catch(async (err) => {
     console.error(`Merge failed for ${projectId}#${number}:`, err);
 
-    // Clean up partial PR if it was created
     const freshTicket = await db.getTicket(projectId, number);
+
+    // If already merged (error happened during CD wait or cleanup), just release lock
+    if (freshTicket?.status === "merged") {
+      await db.releaseMergeLock(projectId);
+      await db.clearMergeProgress(projectId);
+      return;
+    }
+
+    // Clean up partial PR if it was created
     if (freshTicket?.githubPrNumber) {
       try {
         await github.closePullRequest(

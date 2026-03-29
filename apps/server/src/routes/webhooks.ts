@@ -236,7 +236,7 @@ async function handlePushEvent(
           number: ticket.number,
           from: "reviewing",
           to: "in_progress",
-          reason: "conflict",
+          ccStatus: "idle",
         });
 
         // Auto-restart Ticket CC with --resume to handle conflict
