@@ -8,20 +8,52 @@ import type { CCSession } from "@claudehub/shared";
 import TerminalView from "./TerminalView.js";
 import CatScene from "./CatScene.js";
 
-const MIN_WIDTH = 300;
-const MAX_WIDTH_RATIO = 0.7;
-const DEFAULT_WIDTH = 420;
-const STORAGE_KEY = "claudehub:terminal-width";
+// Column layout constants (must match Column.tsx: min-w-[200px], gap-2, p-2)
+const COL_MIN_W = 200;
+const COL_GAP = 8;    // gap-2
+const BOARD_PAD = 8;  // p-2 on each side = 16 total
+const NUM_COLUMNS = 4;
+const COLLAPSED_WIDTH = 36; // w-9
+const STORAGE_KEY = "claudehub:terminal-snap";
 
-function loadWidth(): number {
+/** Calculate snap widths for showing exactly N columns (N = 0..4) */
+function calcSnapWidths(containerWidth: number): number[] {
+  // snaps[i] = terminal width when i columns are hidden
+  // i.e. snaps[0] = show all 4 cols, snaps[4] = show 0 cols (full width terminal)
+  const snaps: number[] = [];
+  for (let hidden = 0; hidden <= NUM_COLUMNS; hidden++) {
+    const visible = NUM_COLUMNS - hidden;
+    const boardWidth = visible > 0
+      ? visible * COL_MIN_W + (visible - 1) * COL_GAP + BOARD_PAD * 2
+      : 0;
+    snaps.push(containerWidth - boardWidth);
+  }
+  return snaps;
+}
+
+/** Find nearest snap index */
+function nearestSnap(width: number, snaps: number[]): number {
+  let best = 0;
+  let bestDist = Math.abs(width - snaps[0]);
+  for (let i = 1; i < snaps.length; i++) {
+    const dist = Math.abs(width - snaps[i]);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function loadSnapIndex(): number {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
     if (v) {
       const n = Number(v);
-      if (n >= MIN_WIDTH) return n;
+      if (n >= 0 && n <= NUM_COLUMNS) return n;
     }
   } catch {}
-  return DEFAULT_WIDTH;
+  return 0; // default: show all columns
 }
 
 function formatTime(iso: string): string {
@@ -61,8 +93,28 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     }
   }, [activeTab, activeTicketNumbers, switchTab]);
 
-  const [width, setWidth] = useState(loadWidth);
+  const [snapIndex, setSnapIndex] = useState(loadSnapIndex);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
+  const [containerWidth, setContainerWidth] = useState(window.innerWidth);
+
+  // Track parent container size
+  useEffect(() => {
+    const measure = () => {
+      const el = containerRef.current?.parentElement;
+      setContainerWidth(el ? el.clientWidth : window.innerWidth);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [panelCollapsed]);
+
+  const getContainerWidth = useCallback(() => containerWidth, [containerWidth]);
+
+  const width = useMemo(() => {
+    const snaps = calcSnapWidths(containerWidth);
+    return Math.max(COLLAPSED_WIDTH, snaps[snapIndex] ?? snaps[0]);
+  }, [snapIndex, containerWidth]);
 
   const kanbanRunning = kanbanCCStatus === "running";
 
@@ -136,35 +188,42 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
     };
   }, []);
 
+  // Track live drag width for smooth visual feedback
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     draggingRef.current = true;
     const startX = e.clientX;
-    const startWidth = width;
-    const maxWidth = window.innerWidth * MAX_WIDTH_RATIO;
+    const cw = getContainerWidth();
+    const snaps = calcSnapWidths(cw);
+    const startWidth = snaps[snapIndex] ?? snaps[0];
 
     const onMove = (ev: MouseEvent) => {
       if (!draggingRef.current) return;
       const delta = startX - ev.clientX;
-      const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + delta));
-      setWidth(next);
+      const next = Math.max(COLLAPSED_WIDTH, Math.min(cw, startWidth + delta));
+      setDragWidth(next);
     };
-    const onUp = () => {
+    const onUp = (ev: MouseEvent) => {
       draggingRef.current = false;
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      setWidth((w) => {
-        localStorage.setItem(STORAGE_KEY, String(Math.round(w)));
-        return w;
-      });
+      // Snap to nearest
+      const delta = startX - ev.clientX;
+      const finalWidth = Math.max(COLLAPSED_WIDTH, Math.min(cw, startWidth + delta));
+      const idx = nearestSnap(finalWidth, snaps);
+      setSnapIndex(idx);
+      setDragWidth(null);
+      localStorage.setItem(STORAGE_KEY, String(idx));
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, [width]);
+  }, [snapIndex, getContainerWidth]);
 
   const handleStopKanbanCC = async () => {
     setCcLoading(true);
@@ -214,7 +273,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
   const activeTicketTab = typeof activeTab === "number" ? activeTab : null;
 
   return (
-    <div className="h-full bg-bg-surface border border-border-default rounded flex flex-col relative" style={{ width }}>
+    <div ref={containerRef} className="h-full bg-bg-surface border border-border-default rounded flex flex-col relative shrink-0" style={{ width: dragWidth ?? width }}>
       {/* Drag handle — extends slightly left beyond the panel border for easier grabbing */}
       <div
         onMouseDown={handleDragStart}
@@ -322,7 +381,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                 )}
               </div>
               <div className="flex-1 overflow-hidden flex">
-                <TerminalView type="kanban" projectId={projectId} panelWidth={width} />
+                <TerminalView type="kanban" projectId={projectId} panelWidth={dragWidth ?? width} />
               </div>
             </div>
           ) : (
@@ -387,7 +446,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
               type="ticket"
               projectId={projectId}
               ticketNumber={activeTicketTab}
-              panelWidth={width}
+              panelWidth={dragWidth ?? width}
               readOnly={isReadOnly}
             />
           </div>

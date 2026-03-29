@@ -21,14 +21,12 @@ interface KanbanBoardProps {
   columns: BoardColumnType[];
   projectId: string;
   onTicketClick: (number: number) => void;
-  children?: React.ReactNode;
 }
 
 export default function KanbanBoard({
   columns,
   projectId,
   onTicketClick,
-  children,
 }: KanbanBoardProps) {
   const { moveTicket, reorderTicket } = useBoardStore();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
@@ -98,7 +96,7 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-2 h-full p-2 overflow-x-auto">
+      <div className="flex gap-2 h-full p-2">
         {columns.map((col) => (
           <Column
             key={col.status}
@@ -106,7 +104,6 @@ export default function KanbanBoard({
             onTicketClick={onTicketClick}
           />
         ))}
-        {children}
       </div>
 
       <DragOverlay>
