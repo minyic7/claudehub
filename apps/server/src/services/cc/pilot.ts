@@ -14,11 +14,15 @@ interface PilotState {
   timer: ReturnType<typeof setTimeout> | null;
   running: boolean;
   lastNudge: string | null;
+  lastResetAt: number; // Date.now() — when idle timer was last reset
   unsubscribe: (() => void) | null; // PTY output listener cleanup
   nudging: boolean; // prevent concurrent nudges
+  broadcastTimer: ReturnType<typeof setTimeout> | null; // debounce for WS broadcast
 }
 
 const pilots = new Map<string, PilotState>();
+
+const BROADCAST_DEBOUNCE_MS = 1000;
 
 /** Extract last N chars of text from ring buffer */
 function getRecentOutput(projectId: string, maxChars = 4000): string {
@@ -36,7 +40,21 @@ function getRecentOutput(projectId: string, maxChars = 4000): string {
 function resetIdleTimer(state: PilotState): void {
   if (!state.running) return;
   if (state.timer) clearTimeout(state.timer);
+  state.lastResetAt = Date.now();
   state.timer = setTimeout(() => nudge(state), state.idleTimeout * 1000);
+
+  // Debounced broadcast so frontend can reset its countdown
+  if (!state.broadcastTimer) {
+    state.broadcastTimer = setTimeout(() => {
+      state.broadcastTimer = null;
+      if (state.running) {
+        broadcastEvent("pilot:idle_reset", state.projectId, {
+          lastResetAt: state.lastResetAt,
+          idleTimeout: state.idleTimeout,
+        });
+      }
+    }, BROADCAST_DEBOUNCE_MS);
+  }
 }
 
 async function nudge(state: PilotState): Promise<void> {
@@ -106,8 +124,10 @@ export async function startPilot(
     timer: null,
     running: true,
     lastNudge: null,
+    lastResetAt: Date.now(),
     unsubscribe: null,
     nudging: false,
+    broadcastTimer: null,
   };
 
   // Listen to PTY output — reset idle timer on every output
@@ -128,6 +148,7 @@ export async function stopPilot(projectId: string): Promise<void> {
   if (state) {
     state.running = false;
     if (state.timer) clearTimeout(state.timer);
+    if (state.broadcastTimer) clearTimeout(state.broadcastTimer);
     if (state.unsubscribe) state.unsubscribe();
     pilots.delete(projectId);
     broadcastEvent("pilot:status_changed", projectId, { active: false });
@@ -154,6 +175,7 @@ export function getPilotStatus(projectId: string): {
   goal?: string;
   idleTimeout?: number;
   lastNudge?: string | null;
+  lastResetAt?: number;
 } {
   const state = pilots.get(projectId);
   if (!state) return { active: false };
@@ -162,6 +184,7 @@ export function getPilotStatus(projectId: string): {
     goal: state.goal,
     idleTimeout: state.idleTimeout,
     lastNudge: state.lastNudge,
+    lastResetAt: state.lastResetAt,
   };
 }
 
@@ -170,6 +193,7 @@ export function stopAllPilots(): void {
   for (const [, state] of pilots) {
     state.running = false;
     if (state.timer) clearTimeout(state.timer);
+    if (state.broadcastTimer) clearTimeout(state.broadcastTimer);
     if (state.unsubscribe) state.unsubscribe();
   }
   pilots.clear();

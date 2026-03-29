@@ -81,6 +81,9 @@ export function useEventWs(projectId: string | undefined) {
             case "pilot:status_changed":
               store.handlePilotStatus(d as { active: boolean });
               break;
+            case "pilot:idle_reset":
+              store.handlePilotIdleReset(d as { lastResetAt: number; idleTimeout: number });
+              break;
           }
         } catch {
           // ignore malformed messages

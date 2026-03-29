@@ -118,6 +118,26 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
   const [pilotGoal, setPilotGoal] = useState("");
   const [pilotIdleTimeout, setPilotIdleTimeout] = useState(5);
 
+  const pilotLastResetAt = useBoardStore((s) => s.pilotLastResetAt);
+  const storePilotIdleTimeout = useBoardStore((s) => s.pilotIdleTimeout);
+
+  // Countdown timer
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (!pilotActive || !pilotLastResetAt || !storePilotIdleTimeout) {
+      setCountdown(null);
+      return;
+    }
+    const tick = () => {
+      const elapsed = (Date.now() - pilotLastResetAt) / 1000;
+      const remaining = Math.max(0, storePilotIdleTimeout - elapsed);
+      setCountdown(Math.ceil(remaining));
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [pilotActive, pilotLastResetAt, storePilotIdleTimeout]);
+
   // Fetch pilot status when kanban is running
   useEffect(() => {
     if (!kanbanRunning) { setPilotActive(false); return; }
@@ -377,7 +397,11 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
                         : "text-text-muted hover:text-accent"
                     }`}
                   >
-                    {pilotActive ? "PILOT ON" : "PILOT"}
+                    {pilotActive
+                      ? countdown !== null && countdown > 0
+                        ? `PILOT ${countdown}s`
+                        : "PILOT ..."
+                      : "PILOT"}
                   </button>
                   <button
                     onClick={handleStopKanbanCC}

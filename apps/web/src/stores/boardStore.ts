@@ -10,6 +10,8 @@ interface BoardStore {
   stats: BoardStats;
   kanbanCCStatus: "running" | "stopped" | "error";
   pilotActive: boolean;
+  pilotLastResetAt: number | null;
+  pilotIdleTimeout: number | null;
   operatorConnectionId: string | null;
   loading: boolean;
 
@@ -33,6 +35,7 @@ interface BoardStore {
   handleKanbanCCStatus: (data: { status: string }) => void;
   handleOperatorChanged: (data: { operatorConnectionId: string | null }) => void;
   handlePilotStatus: (data: { active: boolean }) => void;
+  handlePilotIdleReset: (data: { lastResetAt: number; idleTimeout: number }) => void;
 }
 
 function findAndRemoveTicket(columns: BoardColumn[], number: number): { ticket: Ticket | null; columns: BoardColumn[] } {
@@ -76,6 +79,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   stats: { total: 0, byStatus: {} as Record<TicketStatus, number>, runningCC: 0, queuedCC: 0 },
   kanbanCCStatus: "stopped",
   pilotActive: false,
+  pilotLastResetAt: null,
+  pilotIdleTimeout: null,
   operatorConnectionId: null,
   loading: false,
 
@@ -242,6 +247,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   handlePilotStatus: (data) => {
-    set({ pilotActive: data.active });
+    set({
+      pilotActive: data.active,
+      ...(!data.active && { pilotLastResetAt: null, pilotIdleTimeout: null }),
+    });
+  },
+
+  handlePilotIdleReset: (data) => {
+    set({ pilotLastResetAt: data.lastResetAt, pilotIdleTimeout: data.idleTimeout });
   },
 }));

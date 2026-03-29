@@ -14,7 +14,8 @@ export type WSEventType =
   | "cd:failed"
   | "kanban_cc:status_changed"
   | "operator:changed"
-  | "pilot:status_changed";
+  | "pilot:status_changed"
+  | "pilot:idle_reset";
 
 export type MergeProgressStep =
   | "creating_pr"
