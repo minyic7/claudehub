@@ -372,21 +372,22 @@ tickets.patch("/:number", async (c) => {
     }
 
     if (to === "reviewing") {
-      // Check CI status before allowing reviewing
+      // Check CI status before allowing reviewing — only if repo has workflows
       try {
-        const ci = await github.getCIStatus(
-          project.githubToken, project.owner, project.repo, ticket.branchName,
-        );
-        if (!ci.passed) {
-          return c.json({
-            error: ci.pending
-              ? "CI checks still running. Wait for CI to complete."
-              : `CI checks failed: ${ci.details}`,
-          }, 400);
+        const hasCI = await github.hasWorkflows(project.githubToken, project.owner, project.repo);
+        if (hasCI) {
+          const ci = await github.getCIStatus(
+            project.githubToken, project.owner, project.repo, ticket.branchName,
+          );
+          if (!ci.passed) {
+            return c.json({
+              error: ci.pending
+                ? "CI checks still running. Wait for CI to complete."
+                : `CI checks failed: ${ci.details}`,
+            }, 400);
+          }
         }
       } catch (err) {
-        // If GitHub API is unreachable, block the transition (fail safe)
-        // If the repo simply has no CI configured, getCIStatus returns passed=true
         console.warn("Failed to check CI status:", err);
         return c.json({
           error: "Unable to verify CI status. Please try again.",
