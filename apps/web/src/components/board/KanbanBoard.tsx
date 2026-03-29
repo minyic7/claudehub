@@ -21,12 +21,14 @@ interface KanbanBoardProps {
   columns: BoardColumnType[];
   projectId: string;
   onTicketClick: (number: number) => void;
+  children?: React.ReactNode;
 }
 
 export default function KanbanBoard({
   columns,
   projectId,
   onTicketClick,
+  children,
 }: KanbanBoardProps) {
   const { moveTicket, reorderTicket } = useBoardStore();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
@@ -104,6 +106,7 @@ export default function KanbanBoard({
             onTicketClick={onTicketClick}
           />
         ))}
+        {children}
       </div>
 
       <DragOverlay>

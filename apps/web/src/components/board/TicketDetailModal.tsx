@@ -230,97 +230,95 @@ export default function TicketDetailModal({
         )}
 
         {/* Actions */}
-        {!isMerged && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
-            {ticket.status === "todo" && (
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
+          {ticket.status === "todo" && (
+            <Button
+              size="sm"
+              variant="primary"
+              loading={loading === "start"}
+              onClick={() => handleAction("start")}
+            >
+              START
+            </Button>
+          )}
+
+          {ticket.status === "in_progress" && (
+            <>
+              <Button
+                size="sm"
+                loading={loading === "back_to_todo"}
+                onClick={() => handleAction("back_to_todo")}
+              >
+                BACK TO TODO
+              </Button>
+              <Button
+                size="sm"
+                loading={loading === "to_reviewing"}
+                onClick={() => handleAction("to_reviewing")}
+              >
+                TO REVIEWING
+              </Button>
               <Button
                 size="sm"
                 variant="primary"
-                loading={loading === "start"}
-                onClick={() => handleAction("start")}
+                loading={loading === "start_cc"}
+                onClick={() => handleAction("start_cc")}
               >
-                START
+                START CC
               </Button>
-            )}
+              <Button
+                size="sm"
+                loading={loading === "stop_cc"}
+                onClick={() => handleAction("stop_cc")}
+              >
+                STOP CC
+              </Button>
+            </>
+          )}
 
-            {ticket.status === "in_progress" && (
-              <>
-                <Button
-                  size="sm"
-                  loading={loading === "back_to_todo"}
-                  onClick={() => handleAction("back_to_todo")}
-                >
-                  BACK TO TODO
-                </Button>
-                <Button
-                  size="sm"
-                  loading={loading === "to_reviewing"}
-                  onClick={() => handleAction("to_reviewing")}
-                >
-                  TO REVIEWING
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  loading={loading === "start_cc"}
-                  onClick={() => handleAction("start_cc")}
-                >
-                  START CC
-                </Button>
-                <Button
-                  size="sm"
-                  loading={loading === "stop_cc"}
-                  onClick={() => handleAction("stop_cc")}
-                >
-                  STOP CC
-                </Button>
-              </>
-            )}
+          {ticket.status === "reviewing" && (
+            <>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={loading === "merge"}
+                onClick={() => handleAction("merge")}
+              >
+                MERGE
+              </Button>
+              <Button
+                size="sm"
+                loading={loading === "reject"}
+                onClick={() => handleAction("reject")}
+              >
+                REJECT
+              </Button>
+              <Button
+                size="sm"
+                loading={loading === "back_to_todo"}
+                onClick={() => handleAction("back_to_todo")}
+              >
+                BACK TO TODO
+              </Button>
+              <Button
+                size="sm"
+                loading={loading === "cancel_merge"}
+                onClick={() => handleAction("cancel_merge")}
+              >
+                CANCEL MERGE
+              </Button>
+            </>
+          )}
 
-            {ticket.status === "reviewing" && (
-              <>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  loading={loading === "merge"}
-                  onClick={() => handleAction("merge")}
-                >
-                  MERGE
-                </Button>
-                <Button
-                  size="sm"
-                  loading={loading === "reject"}
-                  onClick={() => handleAction("reject")}
-                >
-                  REJECT
-                </Button>
-                <Button
-                  size="sm"
-                  loading={loading === "back_to_todo"}
-                  onClick={() => handleAction("back_to_todo")}
-                >
-                  BACK TO TODO
-                </Button>
-                <Button
-                  size="sm"
-                  loading={loading === "cancel_merge"}
-                  onClick={() => handleAction("cancel_merge")}
-                >
-                  CANCEL MERGE
-                </Button>
-              </>
-            )}
-
-            <Button
-              size="sm"
-              variant="danger"
-              loading={loading === "delete"}
-              onClick={() => handleAction("delete")}
-            >
-              DELETE
-            </Button>
-          </div>
-        )}
+          <Button
+            size="sm"
+            variant="danger"
+            loading={loading === "delete"}
+            onClick={() => handleAction("delete")}
+          >
+            DELETE
+          </Button>
+        </div>
       </div>
     </Modal>
   );
