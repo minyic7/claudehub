@@ -11,8 +11,8 @@ import CatScene from "./CatScene.js";
 const MIN_WIDTH = 375;
 const DEFAULT_WIDTH = 420;
 const STORAGE_KEY = "claudehub:terminal-width";
-// Reserve space for at least 1 column (must match KanbanBoard constants)
-const MIN_BOARD_WIDTH = 200 + 16; // COL_BASE_WIDTH + BOARD_PAD
+// Reserve space for at least 1 column (COL_BASE_WIDTH + padding + borders + breathing room)
+const MIN_BOARD_WIDTH = 280;
 
 const MIN_HEIGHT = 200;
 const DEFAULT_HEIGHT = 300;
