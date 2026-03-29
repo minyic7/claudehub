@@ -20,10 +20,8 @@ export function useEventWs(projectId: string | undefined) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Re-fetch board on reconnect to catch events missed while disconnected
-        if (backoffRef.current > 1000) {
-          useBoardStore.getState().fetchBoard(projectId!);
-        }
+        // Always re-fetch board on connect/reconnect to catch missed events
+        useBoardStore.getState().fetchBoard(projectId!);
         backoffRef.current = 1000;
       };
 

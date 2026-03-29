@@ -8,8 +8,23 @@ interface EventClient {
 
 const eventClients = new Set<EventClient>();
 
+// Ping interval to keep event WS alive through nginx/proxy timeouts
+const PING_INTERVAL_MS = 25_000;
+
 export function addEventClient(ws: WebSocket, projectId?: string): void {
-  eventClients.add({ ws, projectId });
+  const client: EventClient = { ws, projectId };
+  eventClients.add(client);
+
+  // Start ping/pong keepalive
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === ws.OPEN) {
+      ws.ping();
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, PING_INTERVAL_MS);
+
+  ws.on("close", () => clearInterval(pingInterval));
 }
 
 export function removeEventClient(ws: WebSocket): void {
