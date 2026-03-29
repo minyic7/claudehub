@@ -387,6 +387,42 @@ export async function clearMergeProgress(projectId: string): Promise<void> {
   await redis.del(`merge:progress:${projectId}`);
 }
 
+// ── Pilot State ──
+
+export async function savePilotState(
+  projectId: string,
+  state: { goal: string; idleTimeout: number },
+): Promise<void> {
+  await redis.set(`pilot:${projectId}`, JSON.stringify(state));
+}
+
+export async function getPilotState(
+  projectId: string,
+): Promise<{ goal: string; idleTimeout: number } | null> {
+  const data = await redis.get(`pilot:${projectId}`);
+  if (!data) return null;
+  return JSON.parse(data);
+}
+
+export async function deletePilotState(projectId: string): Promise<void> {
+  await redis.del(`pilot:${projectId}`);
+}
+
+export async function getAllPilotStates(): Promise<
+  { projectId: string; goal: string; idleTimeout: number }[]
+> {
+  const keys = await redis.keys("pilot:*");
+  const results: { projectId: string; goal: string; idleTimeout: number }[] = [];
+  for (const key of keys) {
+    const data = await redis.get(key);
+    if (data) {
+      const projectId = key.replace("pilot:", "");
+      results.push({ projectId, ...JSON.parse(data) });
+    }
+  }
+  return results;
+}
+
 // ── Helpers ──
 
 function flattenForRedis(obj: object): { toSet: Record<string, string>; toDel: string[] } {

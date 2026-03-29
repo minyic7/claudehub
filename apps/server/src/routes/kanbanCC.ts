@@ -130,7 +130,7 @@ kanbanCC.post("/pilot", async (c) => {
     return c.json({ error: "Kanban CC not running" }, 400);
   }
 
-  startPilot(projectId, body.goal, body.idleTimeout ?? 5);
+  await startPilot(projectId, body.goal, body.idleTimeout ?? 5);
 
   return c.json({ active: true }, 201);
 });
@@ -138,7 +138,7 @@ kanbanCC.post("/pilot", async (c) => {
 // DELETE /api/projects/:projectId/kanban-cc/pilot
 kanbanCC.delete("/pilot", async (c) => {
   const projectId = c.req.param("projectId")!;
-  stopPilot(projectId);
+  await stopPilot(projectId);
   return c.json({ active: false });
 });
 

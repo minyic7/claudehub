@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { getRingBuffer, onPTYOutput } from "../../lib/pty.js";
 import { sendToKanbanCC, isKanbanCCRunning } from "./manager.js";
 import { broadcastEvent } from "../../lib/broadcast.js";
+import * as db from "../redis.js";
 
 const exec = promisify(execFile);
 
@@ -90,13 +91,13 @@ Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sen
   resetIdleTimer(state);
 }
 
-export function startPilot(
+export async function startPilot(
   projectId: string,
   goal: string,
   idleTimeout = 5,
-): void {
+): Promise<void> {
   // Stop existing pilot if any
-  stopPilot(projectId);
+  await stopPilot(projectId);
 
   const state: PilotState = {
     projectId,
@@ -114,6 +115,7 @@ export function startPilot(
   state.unsubscribe = onPTYOutput(key, () => resetIdleTimer(state));
 
   pilots.set(projectId, state);
+  await db.savePilotState(projectId, { goal, idleTimeout });
   broadcastEvent("pilot:status_changed", projectId, { active: true, goal });
 
   // Start the idle timer
@@ -121,7 +123,7 @@ export function startPilot(
   console.log(`[pilot] Started for ${projectId}, idle timeout: ${idleTimeout}s`);
 }
 
-export function stopPilot(projectId: string): void {
+export async function stopPilot(projectId: string): Promise<void> {
   const state = pilots.get(projectId);
   if (state) {
     state.running = false;
@@ -129,6 +131,21 @@ export function stopPilot(projectId: string): void {
     if (state.unsubscribe) state.unsubscribe();
     pilots.delete(projectId);
     broadcastEvent("pilot:status_changed", projectId, { active: false });
+  }
+  await db.deletePilotState(projectId);
+}
+
+/** Restore pilots from Redis after server restart */
+export async function restorePilots(): Promise<void> {
+  const saved = await db.getAllPilotStates();
+  for (const { projectId, goal, idleTimeout } of saved) {
+    if (isKanbanCCRunning(projectId)) {
+      console.log(`[pilot] Restoring pilot for ${projectId}`);
+      await startPilot(projectId, goal, idleTimeout);
+    } else {
+      console.log(`[pilot] Kanban CC not running for ${projectId}, deferring pilot restore`);
+      // Keep in Redis — will be restored when Kanban CC starts
+    }
   }
 }
 
@@ -148,9 +165,12 @@ export function getPilotStatus(projectId: string): {
   };
 }
 
-/** Stop all pilots (for graceful shutdown) */
+/** Stop all in-memory pilots (for graceful shutdown — keeps Redis state for restore) */
 export function stopAllPilots(): void {
-  for (const [projectId] of pilots) {
-    stopPilot(projectId);
+  for (const [, state] of pilots) {
+    state.running = false;
+    if (state.timer) clearTimeout(state.timer);
+    if (state.unsubscribe) state.unsubscribe();
   }
+  pilots.clear();
 }

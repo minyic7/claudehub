@@ -14,7 +14,7 @@ import { settings } from "./routes/settings.js";
 import { webhooks } from "./routes/webhooks.js";
 import { createWsRoutes } from "./routes/ws.js";
 import { recoverOnStartup, shutdownAll } from "./services/cc/manager.js";
-import { stopAllPilots } from "./services/cc/pilot.js";
+import { stopAllPilots, restorePilots } from "./services/cc/pilot.js";
 import { redis } from "./services/redis.js";
 
 const app = new Hono();
@@ -61,10 +61,12 @@ const host = process.env.HOST || "0.0.0.0";
 const server = serve({ fetch: app.fetch, port, hostname: host }, (info) => {
   console.log(`Server running on http://${host}:${info.port}`);
 
-  // Recover CC processes after startup
-  recoverOnStartup().catch((err) => {
-    console.error("Failed to recover CC processes:", err);
-  });
+  // Recover CC processes and pilots after startup
+  recoverOnStartup()
+    .then(() => restorePilots())
+    .catch((err) => {
+      console.error("Failed to recover CC processes:", err);
+    });
 });
 
 // Inject WebSocket support into the HTTP server
