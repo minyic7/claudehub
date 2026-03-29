@@ -46,7 +46,9 @@ export default function TerminalView({
       if (!fitAddon || !terminal) return;
       try {
         fitAddon.fit();
-      } catch { return; }
+      } catch {
+        // fit() can throw at very small sizes — still send resize with current dims
+      }
       sendResize(terminal.cols, terminal.rows);
     }, FIT_DEBOUNCE_MS);
   }, [sendResize]);
