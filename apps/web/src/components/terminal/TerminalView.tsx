@@ -9,8 +9,6 @@ interface TerminalViewProps {
   projectId: string;
   ticketNumber?: number;
   onExit?: () => void;
-  /** Pass the panel's current pixel width so we can re-fit on drag resize */
-  panelWidth?: number;
   /** If true, terminal is read-only (CC exited, showing history) */
   readOnly?: boolean;
 }
@@ -22,7 +20,6 @@ export default function TerminalView({
   projectId,
   ticketNumber,
   onExit,
-  panelWidth,
   readOnly,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,30 +84,23 @@ export default function TerminalView({
     // Send initial size
     sendResize(terminal.cols, terminal.rows);
 
+    // Use ResizeObserver on actual container for accurate resize detection
+    const ro = new ResizeObserver(() => debouncedFit());
+    ro.observe(containerRef.current);
+
+    // Also listen to visualViewport for mobile keyboard changes
+    const onVVResize = () => debouncedFit();
+    window.visualViewport?.addEventListener("resize", onVVResize);
+
     return () => {
       clearTimeout(fitTimerRef.current);
+      ro.disconnect();
+      window.visualViewport?.removeEventListener("resize", onVVResize);
       terminal.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [attach, sendResize]);
-
-  // Re-fit terminal when panel width changes (drag resize) or window resizes
-  useEffect(() => {
-    if (panelWidth == null) return;
-    debouncedFit();
-  }, [panelWidth, debouncedFit]);
-
-  // Handle window resize and visualViewport resize (mobile keyboard)
-  useEffect(() => {
-    const onResize = () => debouncedFit();
-    window.addEventListener("resize", onResize);
-    window.visualViewport?.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.visualViewport?.removeEventListener("resize", onResize);
-    };
-  }, [debouncedFit]);
+  }, [attach, sendResize, debouncedFit]);
 
   return (
     <div className="flex-1 relative">

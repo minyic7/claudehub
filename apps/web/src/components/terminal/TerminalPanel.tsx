@@ -290,7 +290,6 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     : isMobile
       ? { height }
       : { width };
-  const panelWidth = isMobile ? window.innerWidth : width;
 
   return (
     <div
@@ -426,7 +425,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
                 )}
               </div>
               <div className="flex-1 overflow-hidden flex">
-                <TerminalView type="kanban" projectId={projectId} panelWidth={panelWidth} />
+                <TerminalView type="kanban" projectId={projectId} />
               </div>
             </div>
           ) : (
@@ -491,7 +490,6 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
               type="ticket"
               projectId={projectId}
               ticketNumber={activeTicketTab}
-              panelWidth={panelWidth}
               readOnly={isReadOnly}
             />
           </div>
