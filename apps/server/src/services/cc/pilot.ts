@@ -14,6 +14,8 @@ interface PilotState {
   timer: ReturnType<typeof setTimeout> | null;
   running: boolean;
   lastNudge: string | null;
+  lastNudgeMessage: string | null; // track last sent message to avoid repeats
+  consecutiveSkips: number; // track how many times we skipped in a row
   lastResetAt: number; // Date.now() — when idle timer was last reset
   unsubscribe: (() => void) | null; // PTY output listener cleanup
   nudging: boolean; // prevent concurrent nudges
@@ -41,6 +43,7 @@ function resetIdleTimer(state: PilotState): void {
   if (!state.running) return;
   if (state.timer) clearTimeout(state.timer);
   state.lastResetAt = Date.now();
+  state.consecutiveSkips = 0; // CC produced output, reset backoff
   state.timer = setTimeout(() => nudge(state), state.idleTimeout * 1000);
 
   // Debounced broadcast so frontend can reset its countdown
@@ -68,6 +71,10 @@ async function nudge(state: PilotState): Promise<void> {
   state.nudging = true;
   const recentOutput = getRecentOutput(state.projectId);
 
+  const lastMsgContext = state.lastNudgeMessage
+    ? `\n## Last Message You Sent\n"${state.lastNudgeMessage}"\n(Avoid repeating the same message. If the situation hasn't changed, respond with SKIP.)`
+    : "";
+
   const prompt = `You are an autopilot assistant monitoring a Kanban CC (project manager AI) that manages a software project.
 
 ## Project Goal
@@ -77,16 +84,22 @@ ${state.goal}
 \`\`\`
 ${recentOutput}
 \`\`\`
-
+${lastMsgContext}
 ## Your Task
 The Kanban CC has been idle (no terminal output) for ${state.idleTimeout} seconds.
-Based on the terminal output, decide what to say to nudge it. Consider:
-- Is it idle/waiting? → Remind it of the goal and tell it to check the board and start working
-- Is it asking a question? → Answer it based on the project goal
-- Is it stuck or erroring? → Suggest a fix or alternative approach
-- Did it just finish something? → Tell it to check what's next on the board
+Decide whether to nudge it or leave it alone.
 
-Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sentences).`;
+Respond with "SKIP" (exactly, nothing else) if ANY of these are true:
+- The CC is clearly waiting for the HUMAN USER to provide input/requirements/decisions
+- The CC just asked the user a question and is waiting for an answer
+- All tasks are done and there's nothing actionable without new user direction
+- You already sent a similar message and the situation hasn't changed
+
+Otherwise, send a concise nudge (1-3 sentences). Consider:
+- Is it idle with pending work? → Remind it of the goal and tell it to check the board
+- Is it asking a question you can answer? → Answer it based on the project goal
+- Is it stuck or erroring? → Suggest a fix or alternative approach
+- Did it just finish something? → Tell it to check what's next on the board`;
 
   try {
     const { stdout } = await exec("claude", ["-p", prompt], {
@@ -95,18 +108,34 @@ Respond with ONLY the message to send to the Kanban CC. Keep it concise (1-3 sen
     });
 
     const message = stdout.trim();
-    if (message) {
+    if (!message || message === "SKIP") {
+      state.consecutiveSkips++;
+      console.log(`[pilot] Skipping nudge for ${state.projectId} (${state.consecutiveSkips} consecutive skips)`);
+    } else {
       console.log(`[pilot] Nudging Kanban CC for ${state.projectId}: ${message.slice(0, 80)}...`);
       sendToKanbanCC(state.projectId, message);
       state.lastNudge = new Date().toISOString();
+      state.lastNudgeMessage = message;
+      state.consecutiveSkips = 0;
     }
   } catch (err) {
     console.warn(`[pilot] claude -p failed for ${state.projectId}:`, err);
   }
 
   state.nudging = false;
-  // After nudge, reset timer to wait for output again
-  resetIdleTimer(state);
+
+  // Exponential backoff on consecutive skips: idle timeout * 2^skips (capped at 5 min)
+  if (state.consecutiveSkips > 0) {
+    const backoffMs = Math.min(
+      state.idleTimeout * 1000 * Math.pow(2, state.consecutiveSkips),
+      300_000,
+    );
+    console.log(`[pilot] Backoff: next check in ${Math.round(backoffMs / 1000)}s`);
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => nudge(state), backoffMs);
+  } else {
+    resetIdleTimer(state);
+  }
 }
 
 export async function startPilot(
@@ -124,6 +153,8 @@ export async function startPilot(
     timer: null,
     running: true,
     lastNudge: null,
+    lastNudgeMessage: null,
+    consecutiveSkips: 0,
     lastResetAt: Date.now(),
     unsubscribe: null,
     nudging: false,
