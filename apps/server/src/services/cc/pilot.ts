@@ -131,6 +131,22 @@ async function nudge(state: PilotState): Promise<void> {
   const worktreePath = await getKanbanWorktreePath(state.projectId);
   const recentOutput = getRecentOutput(state.projectId);
 
+  // Fetch board state for context
+  const settings = await db.getSettings();
+  const maxConcurrent = settings.maxConcurrentTickets || 3;
+  const runningCount = await db.getRunningCount();
+  const freeSlots = Math.max(0, maxConcurrent - runningCount);
+  const tickets = await db.getProjectTickets(state.projectId);
+  const todoCount = tickets.filter((t) => t.status === "todo").length;
+  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
+  const reviewingCount = tickets.filter((t) => t.status === "reviewing").length;
+
+  const boardContext = `\n## Current Board State
+- Running ticket CCs: ${runningCount}/${maxConcurrent} (${freeSlots} free slots)
+- Todo: ${todoCount} | In Progress: ${inProgressCount} | Reviewing: ${reviewingCount}
+${freeSlots > 0 && todoCount === 0 ? "- ⚠️ FREE SLOTS AVAILABLE but no todo tickets queued! Consider requesting multiple independent tasks." : ""}
+${freeSlots > 0 && todoCount > 0 ? "- ⚠️ FREE SLOTS AVAILABLE with todo tickets waiting. The dev team should start them." : ""}`;
+
   const lastMsgContext = state.lastNudgeMessage
     ? `\n## Your Last Message to the Dev Team\n"${state.lastNudgeMessage}"\n(Don't repeat yourself. If the situation hasn't changed, respond with SKIP.)`
     : "";
@@ -144,32 +160,28 @@ ${state.goal}
 \`\`\`
 ${recentOutput}
 \`\`\`
+${boardContext}
 ${lastMsgContext}
 ## How To Respond
 
-First, read the recent terminal output carefully. Determine what the dev team is doing:
+First, read the recent terminal output and board state. Then decide:
 
-**If they asked a question or need a decision** → Answer it decisively. You are the product owner — make the call on:
-- Feature scope ("yes do that" / "no, skip that for now")
-- Design choices ("go with option A because...")
-- Priority decisions ("fix the bug first, then the feature")
-- Technical trade-offs ("use the simpler approach, we can optimize later")
-- UX questions ("the user would expect X behavior")
-Don't say "it's up to you" — that's your job to decide.
+**If they asked a question or need a decision** → Answer it decisively. You are the product owner — make the call on feature scope, design choices, priorities, trade-offs, UX. Don't say "it's up to you."
 
-**If they're idle with no pending questions** → Browse the codebase (read key files, git log/diff) and proactively:
-- Point out bugs, missing features, or UX issues in the code
-- Challenge architectural decisions that seem wrong
-- Suggest the next feature based on the project goal
-- Flag code quality concerns (reference specific files/functions)
-- Ask "why did you do X instead of Y?"
+**If there are free concurrent slots** → Be aggressive about requesting work. Propose multiple independent tasks that can run in parallel. For example: "I want you to create 3 tickets and start them all: (1) ... (2) ... (3) ...". The dev team can reject if they think parallelism would cause conflicts — that's fine, let them decide the technical feasibility, but YOU should push for maximum throughput.
+
+**If they're idle with no pending questions** → Browse the codebase and proactively:
+- Point out bugs, missing features, or UX issues
+- Challenge architectural decisions
+- Suggest the next features based on the project goal
+- Flag code quality concerns (reference specific files)
 
 **Respond with "SKIP" (exactly) only if:**
-- They're actively working and don't need input
-- You already answered and they're implementing your feedback
+- They're actively working on multiple tickets and don't need input
 - Everything is on track with no questions pending
+- All slots are full and work is progressing
 
-Be specific and decisive. Reference actual files and code. Act like a demanding but fair product owner who unblocks the team fast.`;
+Be specific, decisive, and aggressive about throughput. You're a demanding product owner who wants maximum parallel progress. The dev team will push back if parallelism isn't feasible — that's healthy.`;
 
   try {
     const MAX_CONSECUTIVE_SKIPS = 3;
