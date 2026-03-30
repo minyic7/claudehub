@@ -8,7 +8,7 @@ import * as db from "../redis.js";
 const REPOS_DIR = process.env.REPOS_DIR || "/repos";
 
 /** Run claude -p with prompt via stdin (avoids shell arg length limits) */
-function claudePrompt(prompt: string, cwd?: string, timeoutMs = 60_000): Promise<string> {
+function claudePrompt(prompt: string, cwd?: string, timeoutMs = 180_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = cpSpawn("claude", ["-p"], {
       cwd,
