@@ -49,6 +49,17 @@ export function useTerminalWs({
       setConnected(true);
       wasConnectedRef.current = true;
       backoffRef.current = 1000;
+      // Send current terminal size now that WS is open
+      const term = terminalRef.current;
+      if (term) {
+        const json = JSON.stringify({ cols: term.cols, rows: term.rows });
+        const encoder = new TextEncoder();
+        const jsonBytes = encoder.encode(json);
+        const payload = new Uint8Array(1 + jsonBytes.length);
+        payload[0] = 0x01;
+        payload.set(jsonBytes, 1);
+        ws.send(payload);
+      }
     };
 
     ws.onmessage = (e) => {
