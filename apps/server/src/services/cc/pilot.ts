@@ -172,7 +172,7 @@ Don't say "it's up to you" — that's your job to decide.
 Be specific and decisive. Reference actual files and code. Act like a demanding but fair product owner who unblocks the team fast.`;
 
   try {
-    const MAX_CONSECUTIVE_SKIPS = 5;
+    const MAX_CONSECUTIVE_SKIPS = 3;
     let message = await claudePrompt(prompt, worktreePath ?? undefined);
 
     // Force nudge after too many consecutive skips — CC might be stuck

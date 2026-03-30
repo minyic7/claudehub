@@ -434,6 +434,15 @@ tickets.patch("/:number", async (c) => {
       to,
       ccStatus: updates.ccStatus,
     });
+
+    // Notify Kanban CC of status changes
+    const { sendToKanbanCC, isKanbanCCRunning } = await import("../services/cc/manager.js");
+    if (isKanbanCCRunning(projectId)) {
+      sendToKanbanCC(
+        projectId,
+        `[SYSTEM] Ticket #${number} status changed: ${from} → ${to}.${to === "reviewing" ? " Please review this ticket." : ""}`,
+      );
+    }
   }
 
   const updated = await db.updateTicket(projectId, number, updates);
