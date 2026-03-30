@@ -12,6 +12,7 @@ interface BoardStore {
   pilotActive: boolean;
   pilotLastResetAt: number | null;
   pilotIdleTimeout: number | null;
+  pilotNudging: boolean;
   operatorConnectionId: string | null;
   loading: boolean;
 
@@ -81,6 +82,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   pilotActive: false,
   pilotLastResetAt: null,
   pilotIdleTimeout: null,
+  pilotNudging: false,
   operatorConnectionId: null,
   loading: false,
 
@@ -249,11 +251,15 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   handlePilotStatus: (data) => {
     set({
       pilotActive: data.active,
-      ...(!data.active && { pilotLastResetAt: null, pilotIdleTimeout: null }),
+      ...(!data.active && { pilotLastResetAt: null, pilotIdleTimeout: null, pilotNudging: false }),
     });
   },
 
   handlePilotIdleReset: (data) => {
-    set({ pilotLastResetAt: data.lastResetAt, pilotIdleTimeout: data.idleTimeout });
+    set({
+      pilotLastResetAt: data.lastResetAt,
+      pilotIdleTimeout: data.idleTimeout,
+      pilotNudging: !!(data as Record<string, unknown>).nudging,
+    });
   },
 }));

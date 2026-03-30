@@ -92,7 +92,7 @@ function getRecentOutput(projectId: string, maxChars = 2000): string {
 
 /** Reset the idle timer — called on every PTY output */
 function resetIdleTimer(state: PilotState): void {
-  if (!state.running) return;
+  if (!state.running || state.nudging) return;
   if (state.timer) clearTimeout(state.timer);
   state.lastResetAt = Date.now();
   state.consecutiveSkips = 0;
@@ -101,7 +101,7 @@ function resetIdleTimer(state: PilotState): void {
   if (!state.broadcastTimer) {
     state.broadcastTimer = setTimeout(() => {
       state.broadcastTimer = null;
-      if (state.running) {
+      if (state.running && !state.nudging) {
         broadcastEvent("pilot:idle_reset", state.projectId, {
           lastResetAt: state.lastResetAt,
           idleTimeout: state.idleTimeout,
@@ -120,6 +120,13 @@ async function nudge(state: PilotState): Promise<void> {
   }
 
   state.nudging = true;
+  // Clear timer and notify frontend that pilot is thinking
+  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+  broadcastEvent("pilot:idle_reset", state.projectId, {
+    lastResetAt: state.lastResetAt,
+    idleTimeout: state.idleTimeout,
+    nudging: true,
+  });
 
   const worktreePath = await getKanbanWorktreePath(state.projectId);
   const recentOutput = getRecentOutput(state.projectId);

@@ -120,12 +120,13 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
 
   const pilotLastResetAt = useBoardStore((s) => s.pilotLastResetAt);
   const storePilotIdleTimeout = useBoardStore((s) => s.pilotIdleTimeout);
+  const pilotNudging = useBoardStore((s) => s.pilotNudging);
 
-  // Countdown timer
+  // Countdown timer — paused during nudging
   const [countdown, setCountdown] = useState<number | null>(null);
   useEffect(() => {
-    if (!pilotActive || !pilotLastResetAt || !storePilotIdleTimeout) {
-      setCountdown(null);
+    if (!pilotActive || pilotNudging || !pilotLastResetAt || !storePilotIdleTimeout) {
+      setCountdown(pilotNudging ? -1 : null); // -1 = nudging indicator
       return;
     }
     const tick = () => {
@@ -136,7 +137,7 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [pilotActive, pilotLastResetAt, storePilotIdleTimeout]);
+  }, [pilotActive, pilotNudging, pilotLastResetAt, storePilotIdleTimeout]);
 
   // Fetch pilot status when kanban is running
   useEffect(() => {
@@ -398,9 +399,11 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
                     }`}
                   >
                     {pilotActive
-                      ? countdown !== null && countdown > 0
-                        ? `PILOT ${countdown}s`
-                        : "PILOT ..."
+                      ? countdown === -1
+                        ? "PILOT thinking..."
+                        : countdown !== null && countdown > 0
+                          ? `PILOT ${countdown}s`
+                          : "PILOT ..."
                       : "PILOT"}
                   </button>
                   <button
