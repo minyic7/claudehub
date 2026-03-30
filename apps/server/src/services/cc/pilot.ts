@@ -1,14 +1,44 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn as cpSpawn } from "node:child_process";
 import path from "node:path";
 import { getRingBuffer, onPTYOutput } from "../../lib/pty.js";
 import { sendToKanbanCC, isKanbanCCRunning } from "./manager.js";
 import { broadcastEvent } from "../../lib/broadcast.js";
 import * as db from "../redis.js";
 
-const exec = promisify(execFile);
-
 const REPOS_DIR = process.env.REPOS_DIR || "/repos";
+
+/** Run claude -p with prompt via stdin (avoids shell arg length limits) */
+function claudePrompt(prompt: string, cwd?: string, timeoutMs = 60_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = cpSpawn("claude", ["-p"], {
+      cwd,
+      env: { ...process.env },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error("claude -p timed out"));
+    }, timeoutMs);
+
+    proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(`claude -p exited ${code}: ${stderr.slice(0, 200)}`));
+    });
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+  });
+}
 
 interface PilotState {
   projectId: string;
@@ -116,18 +146,7 @@ Otherwise, send a message to the dev team (1-5 sentences). You might:
 Be specific — reference actual files, functions, or behaviors you found in the code. Don't give vague encouragement. Act like a demanding but fair product owner.`;
 
   try {
-    const execOpts: Record<string, unknown> = {
-      timeout: 60_000,
-      env: { ...process.env },
-      maxBuffer: 1024 * 1024,
-    };
-    if (worktreePath) {
-      execOpts.cwd = worktreePath;
-    }
-
-    const { stdout } = await exec("claude", ["-p", prompt], execOpts as Parameters<typeof exec>[2]);
-
-    const message = String(stdout).trim();
+    const message = await claudePrompt(prompt, worktreePath ?? undefined);
     if (!message || message === "SKIP") {
       state.consecutiveSkips++;
       console.log(`[pilot] Skipping nudge for ${state.projectId} (${state.consecutiveSkips} consecutive skips)`);
