@@ -337,7 +337,11 @@ export async function stopKanbanCC(projectId: string): Promise<void> {
 }
 
 export function sendToKanbanCC(projectId: string, message: string): boolean {
-  return writeToPTY(`kanban:${projectId}`, message + "\r");
+  const key = `kanban:${projectId}`;
+  const sent = writeToPTY(key, message + "\r");
+  // Extra Enter after delay to confirm multiline paste prompt in Claude CLI
+  if (sent) setTimeout(() => writeToPTY(key, "\r"), 500);
+  return sent;
 }
 
 export function isKanbanCCRunning(projectId: string): boolean {
@@ -546,7 +550,10 @@ export function sendToTicketCC(
   number: number,
   message: string,
 ): boolean {
-  return writeToPTY(`ticket:${projectId}:${number}`, message + "\r");
+  const key = `ticket:${projectId}:${number}`;
+  const sent = writeToPTY(key, message + "\r");
+  if (sent) setTimeout(() => writeToPTY(key, "\r"), 500);
+  return sent;
 }
 
 export function isTicketCCRunning(
