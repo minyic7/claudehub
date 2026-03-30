@@ -172,7 +172,15 @@ Don't say "it's up to you" — that's your job to decide.
 Be specific and decisive. Reference actual files and code. Act like a demanding but fair product owner who unblocks the team fast.`;
 
   try {
-    const message = await claudePrompt(prompt, worktreePath ?? undefined);
+    const MAX_CONSECUTIVE_SKIPS = 5;
+    let message = await claudePrompt(prompt, worktreePath ?? undefined);
+
+    // Force nudge after too many consecutive skips — CC might be stuck
+    if ((!message || message === "SKIP") && state.consecutiveSkips >= MAX_CONSECUTIVE_SKIPS - 1) {
+      console.log(`[pilot] Forcing nudge after ${state.consecutiveSkips + 1} consecutive skips`);
+      message = "You've been idle for a while. Please check the board (GET /board) and report your current status. If you're stuck, describe the problem.";
+    }
+
     if (!message || message === "SKIP") {
       state.consecutiveSkips++;
       console.log(`[pilot] Skipping nudge for ${state.projectId} (${state.consecutiveSkips} consecutive skips)`);
