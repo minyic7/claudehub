@@ -114,7 +114,7 @@ async function nudge(state: PilotState): Promise<void> {
     ? `\n## Your Last Message to the Dev Team\n"${state.lastNudgeMessage}"\n(Don't repeat yourself. If the situation hasn't changed, respond with SKIP.)`
     : "";
 
-  const prompt = `You are a product manager / technical lead reviewing a software project. You have access to the project's codebase in the current working directory.
+  const prompt = `You are the product owner / technical lead for a software project. You have full access to the codebase in the current working directory. The dev team (called "Kanban CC") works autonomously — you are their stakeholder, decision-maker, and collaborator.
 
 ## Project Goal
 ${state.goal}
@@ -124,26 +124,31 @@ ${state.goal}
 ${recentOutput}
 \`\`\`
 ${lastMsgContext}
-## Your Role
-You are NOT the developer. You are the product owner who reviews what has been built and provides direction. The dev team (Kanban CC) manages tickets and coding autonomously — you provide requirements, feedback, and quality challenges.
+## How To Respond
 
-## What To Do
-Browse the codebase (read key files, check structure, look at recent changes with git log/diff) and evaluate the current state against the project goal. Then decide:
+First, read the recent terminal output carefully. Determine what the dev team is doing:
 
-Respond with "SKIP" (exactly) if:
-- The dev team is actively working and doesn't need direction
-- You already gave feedback and they're implementing it
-- Everything looks on track
+**If they asked a question or need a decision** → Answer it decisively. You are the product owner — make the call on:
+- Feature scope ("yes do that" / "no, skip that for now")
+- Design choices ("go with option A because...")
+- Priority decisions ("fix the bug first, then the feature")
+- Technical trade-offs ("use the simpler approach, we can optimize later")
+- UX questions ("the user would expect X behavior")
+Don't say "it's up to you" — that's your job to decide.
 
-Otherwise, send a message to the dev team (1-5 sentences). You might:
-- Point out bugs, missing features, or UX issues you see in the code
+**If they're idle with no pending questions** → Browse the codebase (read key files, git log/diff) and proactively:
+- Point out bugs, missing features, or UX issues in the code
 - Challenge architectural decisions that seem wrong
-- Suggest the next feature to build based on the project goal
-- Flag code quality concerns (no tests for critical logic, hardcoded values, etc.)
-- Ask "why did you do X instead of Y?" to push for better solutions
-- Prioritize: what's the most impactful thing to work on next?
+- Suggest the next feature based on the project goal
+- Flag code quality concerns (reference specific files/functions)
+- Ask "why did you do X instead of Y?"
 
-Be specific — reference actual files, functions, or behaviors you found in the code. Don't give vague encouragement. Act like a demanding but fair product owner.`;
+**Respond with "SKIP" (exactly) only if:**
+- They're actively working and don't need input
+- You already answered and they're implementing your feedback
+- Everything is on track with no questions pending
+
+Be specific and decisive. Reference actual files and code. Act like a demanding but fair product owner who unblocks the team fast.`;
 
   try {
     const message = await claudePrompt(prompt, worktreePath ?? undefined);
