@@ -7,8 +7,8 @@ import * as db from "../redis.js";
 
 const REPOS_DIR = process.env.REPOS_DIR || "/repos";
 
-/** Run claude -p with prompt via stdin (avoids shell arg length limits) */
-function claudePrompt(prompt: string, cwd?: string, timeoutMs = 180_000): Promise<string> {
+/** Run claude -p with prompt via stdin (no timeout, checks process is alive) */
+function claudePrompt(prompt: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = cpSpawn("claude", ["-p"], {
       cwd,
@@ -18,20 +18,34 @@ function claudePrompt(prompt: string, cwd?: string, timeoutMs = 180_000): Promis
 
     let stdout = "";
     let stderr = "";
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error("claude -p timed out"));
-    }, timeoutMs);
+    let settled = false;
+
+    // Periodic liveness check — if process died without firing 'close', clean up
+    const livenessCheck = setInterval(() => {
+      try {
+        process.kill(proc.pid!, 0); // signal 0 = check if alive
+      } catch {
+        clearInterval(livenessCheck);
+        if (!settled) {
+          settled = true;
+          reject(new Error("claude -p process died unexpectedly"));
+        }
+      }
+    }, 10_000);
 
     proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
     proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
     proc.on("close", (code) => {
-      clearTimeout(timer);
+      clearInterval(livenessCheck);
+      if (settled) return;
+      settled = true;
       if (code === 0) resolve(stdout.trim());
       else reject(new Error(`claude -p exited ${code}: ${stderr.slice(0, 200)}`));
     });
     proc.on("error", (err) => {
-      clearTimeout(timer);
+      clearInterval(livenessCheck);
+      if (settled) return;
+      settled = true;
       reject(err);
     });
 
