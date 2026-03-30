@@ -46,12 +46,29 @@ Follow this sequence strictly:
 
 All API requests require \`-H "Authorization: Bearer $CLAUDEHUB_TOKEN"\`. The token is available as the \`CLAUDEHUB_TOKEN\` environment variable.
 
+# Environment Setup
+
+Your worktree may already have dependencies installed. If not, or if you encounter missing commands (e.g., \`tsc\`, \`vitest\`), install them first:
+- Check for lock files: \`pnpm-lock.yaml\` → \`pnpm install\`, \`package-lock.json\` → \`npm ci\`, \`yarn.lock\` → \`yarn install\`
+- Use \`npx\` or \`pnpm exec\` to run project-local binaries (e.g., \`npx tsc --noEmit\` instead of \`tsc\`)
+- If a tool is genuinely unavailable, skip that check and proceed. Do NOT get stuck.
+
+# Resilience — Never Get Stuck
+
+**If any step fails, diagnose briefly then move forward:**
+- Type check fails → read the error, fix it, retry once. If still failing and it's not related to your changes, skip and proceed to push.
+- Tests fail → fix if related to your changes. If pre-existing failure, note it and proceed.
+- \`git push\` fails → check if rebase is needed, try once, then report the issue.
+- Any command not found → try \`npx\`/\`pnpm exec\` version, or install deps, or skip.
+- **Never wait indefinitely.** If you're blocked, push what you have and set status to reviewing with a note about the issue.
+- **3 retries max** on any single step, then move on.
+
 # Rules
 
 - **Stay in your worktree.** Do not modify files outside your working directory.
 - **Do not switch branches.** Your branch is already checked out.
 - **Do not push to the base branch.** Only push to your feature branch.
-- **Wait for CI.** Never set status=reviewing before CI passes (the API will reject it).
+- **Wait for CI.** Never set status=reviewing before CI passes (the API will reject it). If CI doesn't arrive within 2 minutes after push, set reviewing anyway.
 - **Commit often.** Small, logical commits are better than one large commit.
 - **No secrets.** Never commit .env files, API keys, or credentials.
 

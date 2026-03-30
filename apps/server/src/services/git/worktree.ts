@@ -49,9 +49,31 @@ export async function gitFetch(
 ): Promise<void> {
   const repoPath = bareRepoPath(owner, repo);
   const url = `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
-  await exec("git", ["fetch", url, "+refs/heads/*:refs/heads/*", "--prune"], {
+  // Fetch to remote tracking refs (refs/remotes/origin/*) to avoid conflicts
+  // with branches checked out in worktrees, then update local branch refs
+  // only for branches not checked out.
+  await exec("git", ["fetch", url, "+refs/heads/*:refs/remotes/origin/*", "--prune"], {
     cwd: repoPath,
   });
+  // Update local branch refs from remote tracking refs (skip checked-out branches)
+  try {
+    const { stdout } = await exec("git", ["for-each-ref", "--format=%(refname:short)", "refs/remotes/origin/"], {
+      cwd: repoPath,
+    });
+    for (const line of stdout.trim().split("\n")) {
+      const branch = line.replace("origin/", "");
+      if (!branch) continue;
+      try {
+        await exec("git", ["update-ref", `refs/heads/${branch}`, `refs/remotes/origin/${branch}`], {
+          cwd: repoPath,
+        });
+      } catch {
+        // Branch checked out in worktree — skip silently
+      }
+    }
+  } catch {
+    // for-each-ref failed — non-critical
+  }
 }
 
 /** Create worktree for a ticket branch */
@@ -68,6 +90,21 @@ export async function addWorktree(
   await exec("git", ["worktree", "add", "-b", branchName, wtPath, baseBranch], {
     cwd: repoPath,
   });
+
+  // Auto-install dependencies if a lock file exists
+  try {
+    const fs = await import("node:fs/promises");
+    if (await fs.access(path.join(wtPath, "pnpm-lock.yaml")).then(() => true, () => false)) {
+      await exec("pnpm", ["install", "--frozen-lockfile"], { cwd: wtPath });
+    } else if (await fs.access(path.join(wtPath, "package-lock.json")).then(() => true, () => false)) {
+      await exec("npm", ["ci"], { cwd: wtPath });
+    } else if (await fs.access(path.join(wtPath, "yarn.lock")).then(() => true, () => false)) {
+      await exec("yarn", ["install", "--frozen-lockfile"], { cwd: wtPath });
+    }
+  } catch (err) {
+    console.warn(`[worktree] Failed to install deps in ${wtPath}:`, err);
+    // Non-fatal: CC can install deps itself
+  }
 
   return wtPath;
 }
