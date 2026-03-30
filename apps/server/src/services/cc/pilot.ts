@@ -1,11 +1,14 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import path from "node:path";
 import { getRingBuffer, onPTYOutput } from "../../lib/pty.js";
 import { sendToKanbanCC, isKanbanCCRunning } from "./manager.js";
 import { broadcastEvent } from "../../lib/broadcast.js";
 import * as db from "../redis.js";
 
 const exec = promisify(execFile);
+
+const REPOS_DIR = process.env.REPOS_DIR || "/repos";
 
 interface PilotState {
   projectId: string;
@@ -14,28 +17,33 @@ interface PilotState {
   timer: ReturnType<typeof setTimeout> | null;
   running: boolean;
   lastNudge: string | null;
-  lastNudgeMessage: string | null; // track last sent message to avoid repeats
-  consecutiveSkips: number; // track how many times we skipped in a row
-  lastResetAt: number; // Date.now() — when idle timer was last reset
-  unsubscribe: (() => void) | null; // PTY output listener cleanup
-  nudging: boolean; // prevent concurrent nudges
-  broadcastTimer: ReturnType<typeof setTimeout> | null; // debounce for WS broadcast
+  lastNudgeMessage: string | null;
+  consecutiveSkips: number;
+  lastResetAt: number;
+  unsubscribe: (() => void) | null;
+  nudging: boolean;
+  broadcastTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const pilots = new Map<string, PilotState>();
 
 const BROADCAST_DEBOUNCE_MS = 1000;
 
-/** Extract last N chars of text from ring buffer */
-function getRecentOutput(projectId: string, maxChars = 4000): string {
+/** Get kanban worktree path for a project */
+async function getKanbanWorktreePath(projectId: string): Promise<string | null> {
+  const project = await db.getProject(projectId);
+  if (!project) return null;
+  return path.join(REPOS_DIR, project.owner, `${project.repo}.git`, "worktrees-data", "kanban");
+}
+
+/** Extract last N chars of terminal output from ring buffer */
+function getRecentOutput(projectId: string, maxChars = 2000): string {
   const key = `kanban:${projectId}`;
   const ringBuffer = getRingBuffer(key);
-  if (!ringBuffer) return "(no terminal output available)";
+  if (!ringBuffer) return "(no terminal output)";
   const history = ringBuffer.getHistory().toString("utf-8");
-  if (history.length > maxChars) {
-    return history.slice(-maxChars);
-  }
-  return history || "(terminal is empty)";
+  if (history.length > maxChars) return history.slice(-maxChars);
+  return history || "(empty)";
 }
 
 /** Reset the idle timer — called on every PTY output */
@@ -43,10 +51,9 @@ function resetIdleTimer(state: PilotState): void {
   if (!state.running) return;
   if (state.timer) clearTimeout(state.timer);
   state.lastResetAt = Date.now();
-  state.consecutiveSkips = 0; // CC produced output, reset backoff
+  state.consecutiveSkips = 0;
   state.timer = setTimeout(() => nudge(state), state.idleTimeout * 1000);
 
-  // Debounced broadcast so frontend can reset its countdown
   if (!state.broadcastTimer) {
     state.broadcastTimer = setTimeout(() => {
       state.broadcastTimer = null;
@@ -65,55 +72,68 @@ async function nudge(state: PilotState): Promise<void> {
 
   if (!isKanbanCCRunning(state.projectId)) {
     console.log(`[pilot] Kanban CC not running for ${state.projectId}, waiting for output`);
-    return; // Don't reset timer — PTY output listener will restart it when CC is back
+    return;
   }
 
   state.nudging = true;
+
+  const worktreePath = await getKanbanWorktreePath(state.projectId);
   const recentOutput = getRecentOutput(state.projectId);
 
   const lastMsgContext = state.lastNudgeMessage
-    ? `\n## Last Message You Sent\n"${state.lastNudgeMessage}"\n(Avoid repeating the same message. If the situation hasn't changed, respond with SKIP.)`
+    ? `\n## Your Last Message to the Dev Team\n"${state.lastNudgeMessage}"\n(Don't repeat yourself. If the situation hasn't changed, respond with SKIP.)`
     : "";
 
-  const prompt = `You are an autopilot assistant monitoring a Kanban CC (project manager AI) that manages a software project.
+  const prompt = `You are a product manager / technical lead reviewing a software project. You have access to the project's codebase in the current working directory.
 
 ## Project Goal
 ${state.goal}
 
-## Recent Kanban CC Terminal Output (last ~4000 chars)
+## Recent Dev Team Activity (terminal output, last ~2000 chars)
 \`\`\`
 ${recentOutput}
 \`\`\`
 ${lastMsgContext}
-## Your Task
-The Kanban CC has been idle (no terminal output) for ${state.idleTimeout} seconds.
-Decide whether to nudge it or leave it alone.
+## Your Role
+You are NOT the developer. You are the product owner who reviews what has been built and provides direction. The dev team (Kanban CC) manages tickets and coding autonomously — you provide requirements, feedback, and quality challenges.
 
-Respond with "SKIP" (exactly, nothing else) if ANY of these are true:
-- The CC is clearly waiting for the HUMAN USER to provide input/requirements/decisions
-- The CC just asked the user a question and is waiting for an answer
-- All tasks are done and there's nothing actionable without new user direction
-- You already sent a similar message and the situation hasn't changed
+## What To Do
+Browse the codebase (read key files, check structure, look at recent changes with git log/diff) and evaluate the current state against the project goal. Then decide:
 
-Otherwise, send a concise nudge (1-3 sentences). Consider:
-- Is it idle with pending work? → Remind it of the goal and tell it to check the board
-- Is it asking a question you can answer? → Answer it based on the project goal
-- Is it stuck or erroring? → Suggest a fix or alternative approach
-- Did it just finish something? → Tell it to check what's next on the board`;
+Respond with "SKIP" (exactly) if:
+- The dev team is actively working and doesn't need direction
+- You already gave feedback and they're implementing it
+- Everything looks on track
+
+Otherwise, send a message to the dev team (1-5 sentences). You might:
+- Point out bugs, missing features, or UX issues you see in the code
+- Challenge architectural decisions that seem wrong
+- Suggest the next feature to build based on the project goal
+- Flag code quality concerns (no tests for critical logic, hardcoded values, etc.)
+- Ask "why did you do X instead of Y?" to push for better solutions
+- Prioritize: what's the most impactful thing to work on next?
+
+Be specific — reference actual files, functions, or behaviors you found in the code. Don't give vague encouragement. Act like a demanding but fair product owner.`;
 
   try {
-    const { stdout } = await exec("claude", ["-p", prompt], {
-      timeout: 30_000,
+    const execOpts: Record<string, unknown> = {
+      timeout: 60_000,
       env: { ...process.env },
-    });
+      maxBuffer: 1024 * 1024,
+    };
+    if (worktreePath) {
+      execOpts.cwd = worktreePath;
+    }
 
-    const message = stdout.trim();
+    const { stdout } = await exec("claude", ["-p", prompt], execOpts as Parameters<typeof exec>[2]);
+
+    const message = String(stdout).trim();
     if (!message || message === "SKIP") {
       state.consecutiveSkips++;
       console.log(`[pilot] Skipping nudge for ${state.projectId} (${state.consecutiveSkips} consecutive skips)`);
     } else {
-      console.log(`[pilot] Nudging Kanban CC for ${state.projectId}: ${message.slice(0, 80)}...`);
-      sendToKanbanCC(state.projectId, message);
+      console.log(`[pilot] Nudging Kanban CC for ${state.projectId}: ${message.slice(0, 100)}...`);
+      sendToKanbanCC(state.projectId, `[PILOT] ${message}`);
       state.lastNudge = new Date().toISOString();
       state.lastNudgeMessage = message;
       state.consecutiveSkips = 0;
@@ -124,7 +144,7 @@ Otherwise, send a concise nudge (1-3 sentences). Consider:
 
   state.nudging = false;
 
-  // Exponential backoff on consecutive skips: idle timeout * 2^skips (capped at 5 min)
+  // Exponential backoff on consecutive skips (capped at 5 min)
   if (state.consecutiveSkips > 0) {
     const backoffMs = Math.min(
       state.idleTimeout * 1000 * Math.pow(2, state.consecutiveSkips),
@@ -143,7 +163,6 @@ export async function startPilot(
   goal: string,
   idleTimeout = 5,
 ): Promise<void> {
-  // Stop existing pilot if any
   await stopPilot(projectId);
 
   const state: PilotState = {
@@ -161,7 +180,6 @@ export async function startPilot(
     broadcastTimer: null,
   };
 
-  // Listen to PTY output — reset idle timer on every output
   const key = `kanban:${projectId}`;
   state.unsubscribe = onPTYOutput(key, () => resetIdleTimer(state));
 
@@ -169,7 +187,6 @@ export async function startPilot(
   await db.savePilotState(projectId, { goal, idleTimeout });
   broadcastEvent("pilot:status_changed", projectId, { active: true, goal });
 
-  // Start the idle timer
   resetIdleTimer(state);
   console.log(`[pilot] Started for ${projectId}, idle timeout: ${idleTimeout}s`);
 }
@@ -196,7 +213,6 @@ export async function restorePilots(): Promise<void> {
       await startPilot(projectId, goal, idleTimeout);
     } else {
       console.log(`[pilot] Kanban CC not running for ${projectId}, deferring pilot restore`);
-      // Keep in Redis — will be restored when Kanban CC starts
     }
   }
 }
