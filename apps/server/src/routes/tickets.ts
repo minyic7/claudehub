@@ -597,40 +597,42 @@ tickets.post("/:number/merge", async (c) => {
     return c.json({ error: "Another merge is in progress" }, 409);
   }
 
-  // Return 202 — async merge
-  // Run merge in background
-  doMerge(project, ticket).catch(async (err) => {
-    console.error(`Merge failed for ${projectId}#${number}:`, err);
+  // Return 202 — async merge with guaranteed lock release
+  (async () => {
+    try {
+      await doMerge(project, ticket);
+    } catch (err) {
+      console.error(`Merge failed for ${projectId}#${number}:`, err);
 
-    const freshTicket = await db.getTicket(projectId, number);
+      const freshTicket = await db.getTicket(projectId, number);
 
-    // If already merged (error happened during CD wait or cleanup), just release lock
-    if (freshTicket?.status === "merged") {
+      // If already merged (error happened during CD wait or cleanup), just clean up
+      if (freshTicket?.status === "merged") return;
+
+      // Clean up partial PR if it was created
+      if (freshTicket?.githubPrNumber) {
+        try {
+          await github.closePullRequest(
+            project.githubToken, project.owner, project.repo, freshTicket.githubPrNumber,
+          );
+        } catch { /* ignore */ }
+        await db.updateTicket(projectId, number, { githubPrNumber: undefined });
+      }
+
+      await db.setMergeProgress(projectId, number, "failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      broadcastEvent("merge:progress", projectId, {
+        number,
+        status: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      // ALWAYS release lock, no matter what
       await db.releaseMergeLock(projectId);
       await db.clearMergeProgress(projectId);
-      return;
     }
-
-    // Clean up partial PR if it was created
-    if (freshTicket?.githubPrNumber) {
-      try {
-        await github.closePullRequest(
-          project.githubToken, project.owner, project.repo, freshTicket.githubPrNumber,
-        );
-      } catch { /* ignore */ }
-      await db.updateTicket(projectId, number, { githubPrNumber: undefined });
-    }
-
-    await db.releaseMergeLock(projectId);
-    await db.setMergeProgress(projectId, number, "failed", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    broadcastEvent("merge:progress", projectId, {
-      number,
-      status: "failed",
-      error: err instanceof Error ? err.message : String(err),
-    });
-  });
+  })();
 
   return c.json({ accepted: true, message: "Merge started" }, 202);
 });
@@ -730,8 +732,7 @@ async function doMerge(
     }
   }
 
-  await db.releaseMergeLock(projectId);
-  await db.clearMergeProgress(projectId);
+  // Lock release handled by caller's finally block
 
   // Update kanban worktree to include the merge, then notify Kanban CC
   try {

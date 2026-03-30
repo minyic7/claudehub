@@ -315,7 +315,7 @@ export async function getRunningItems(): Promise<string[]> {
 
 export async function acquireMergeLock(
   projectId: string,
-  ttlSeconds = 600,
+  ttlSeconds = 120,
 ): Promise<boolean> {
   const result = await redis.set(
     `merge:lock:${projectId}`,
@@ -329,7 +329,7 @@ export async function acquireMergeLock(
 
 export async function renewMergeLock(
   projectId: string,
-  ttlSeconds = 600,
+  ttlSeconds = 120,
 ): Promise<boolean> {
   const result = await redis.expire(`merge:lock:${projectId}`, ttlSeconds);
   return result === 1;
