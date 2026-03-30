@@ -1,6 +1,6 @@
 import { spawn as cpSpawn } from "node:child_process";
 import path from "node:path";
-import { getRingBuffer, onPTYOutput } from "../../lib/pty.js";
+import { getRingBuffer, onPTYOutput, writeToPTY } from "../../lib/pty.js";
 import { sendToKanbanCC, isKanbanCCRunning } from "./manager.js";
 import { broadcastEvent } from "../../lib/broadcast.js";
 import * as db from "../redis.js";
@@ -178,7 +178,10 @@ Be specific and decisive. Reference actual files and code. Act like a demanding 
       console.log(`[pilot] Skipping nudge for ${state.projectId} (${state.consecutiveSkips} consecutive skips)`);
     } else {
       console.log(`[pilot] Nudging Kanban CC for ${state.projectId}: ${message.slice(0, 100)}...`);
+      // Send message + extra \r to confirm multiline paste in Claude CLI
       sendToKanbanCC(state.projectId, `[PILOT] ${message}`);
+      // Small delay then send Enter to confirm the paste prompt
+      setTimeout(() => writeToPTY(`kanban:${state.projectId}`, "\r"), 500);
       state.lastNudge = new Date().toISOString();
       state.lastNudgeMessage = message;
       state.consecutiveSkips = 0;
