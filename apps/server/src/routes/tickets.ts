@@ -459,10 +459,6 @@ tickets.delete("/:number", async (c) => {
   const ticket = await db.getTicket(projectId, number);
   if (!ticket) return c.json({ error: "Ticket not found" }, 404);
 
-  if (ticket.status === "merged") {
-    return c.json({ error: "Cannot delete merged ticket" }, 400);
-  }
-
   const project = await db.getProject(projectId);
   if (!project) return c.json({ error: "Project not found" }, 404);
 
