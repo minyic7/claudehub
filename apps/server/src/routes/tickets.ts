@@ -504,43 +504,30 @@ async function cleanupTicketResources(
   project: { id: string; owner: string; repo: string; githubToken: string },
   ticket: Ticket,
 ): Promise<void> {
-  // Remove worktree
-  try {
-    await git.removeWorktree(project.owner, project.repo, ticket.branchName);
-    await git.deleteLocalBranch(project.owner, project.repo, ticket.branchName);
-  } catch {
-    // ignore
-  }
-
-  // Close GitHub PR if exists
-  if (ticket.githubPrNumber) {
+  // Merged tickets already had worktree/branch/PR cleaned up during merge
+  if (ticket.status === "merged") {
+    // Just close issue (if still open) and delete from Redis
     try {
-      await github.closePullRequest(
-        project.githubToken, project.owner, project.repo, ticket.githubPrNumber,
+      await github.closeIssue(
+        project.githubToken, project.owner, project.repo, ticket.githubIssueNumber,
       );
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
+    await db.deleteTicket(ticket.projectId, ticket.number);
+    return;
   }
 
-  // Close GitHub Issue
-  try {
-    await github.closeIssue(
-      project.githubToken, project.owner, project.repo, ticket.githubIssueNumber,
-    );
-  } catch {
-    // ignore
-  }
-
-  // Delete remote branch
-  try {
-    await github.deleteBranch(
-      project.githubToken, project.owner, project.repo, ticket.branchName,
-    );
-  } catch {
-    // ignore
-  }
-
+  // Non-merged: full cleanup
+  const cleanups = [
+    git.removeWorktree(project.owner, project.repo, ticket.branchName)
+      .then(() => git.deleteLocalBranch(project.owner, project.repo, ticket.branchName))
+      .catch(() => {}),
+    ticket.githubPrNumber
+      ? github.closePullRequest(project.githubToken, project.owner, project.repo, ticket.githubPrNumber).catch(() => {})
+      : Promise.resolve(),
+    github.closeIssue(project.githubToken, project.owner, project.repo, ticket.githubIssueNumber).catch(() => {}),
+    github.deleteBranch(project.githubToken, project.owner, project.repo, ticket.branchName).catch(() => {}),
+  ];
+  await Promise.all(cleanups);
   await db.deleteTicket(ticket.projectId, ticket.number);
 }
 

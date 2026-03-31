@@ -59,20 +59,16 @@ export default function BoardPage() {
     if (!projectId || selectedTickets.size === 0) return;
     const nums = Array.from(selectedTickets);
     if (!confirm(`Delete ${nums.length} ticket(s)? This cannot be undone.`)) return;
-    let deleted = 0;
-    for (const num of nums) {
-      try {
-        await api.deleteTicket(projectId, num);
-        deleted++;
-      } catch (err) {
-        toast.error(`Failed to delete #${num}: ${err instanceof Error ? err.message : "unknown"}`);
-      }
-    }
-    if (deleted > 0) {
-      toast.success(`Deleted ${deleted} ticket(s)`);
-      setSelectedTickets(new Set());
-      refreshBoard();
-    }
+    const results = await Promise.allSettled(
+      nums.map((num) => api.deleteTicket(projectId, num)),
+    );
+    const deleted = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (deleted > 0) toast.success(`Deleted ${deleted} ticket(s)`);
+    if (failed > 0) toast.error(`Failed to delete ${failed} ticket(s)`);
+    setSelectedTickets(new Set());
+    setManageMode(false);
+    refreshBoard();
   }, [projectId, selectedTickets]);
 
   useEventWs(projectId);
