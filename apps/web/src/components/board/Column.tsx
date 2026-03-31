@@ -6,6 +6,10 @@ import TicketCard from "./TicketCard.js";
 interface ColumnProps {
   column: BoardColumn;
   onTicketClick: (number: number) => void;
+  manageMode?: boolean;
+  selectedTickets?: Set<number>;
+  onToggleTicket?: (num: number) => void;
+  onToggleColumn?: (status: string) => void;
 }
 
 const columnColors: Record<string, string> = {
@@ -22,7 +26,7 @@ const eyeColors: Record<string, string> = {
   merged: "bg-[#70B8F0]",
 };
 
-export default function Column({ column, onTicketClick }: ColumnProps) {
+export default function Column({ column, onTicketClick, manageMode, selectedTickets, onToggleTicket, onToggleColumn }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.status}`,
     data: { status: column.status },
@@ -37,6 +41,14 @@ export default function Column({ column, onTicketClick }: ColumnProps) {
       {/* Column header */}
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-1.5">
+          {manageMode && column.tickets.length > 0 && (
+            <input
+              type="checkbox"
+              checked={column.tickets.every((t) => selectedTickets?.has(t.number))}
+              onChange={() => onToggleColumn?.(column.status)}
+              className="shrink-0 cursor-pointer"
+            />
+          )}
           <span className={`w-2 h-2 rounded-full ${eyeColors[column.status] || "bg-text-muted"} opacity-70`} />
           <span className="font-pixel text-[8px] text-text-secondary uppercase">
             {column.label}
@@ -57,11 +69,22 @@ export default function Column({ column, onTicketClick }: ColumnProps) {
           strategy={verticalListSortingStrategy}
         >
           {column.tickets.map((ticket) => (
-            <TicketCard
-              key={ticket.number}
-              ticket={ticket}
-              onClick={() => onTicketClick(ticket.number)}
-            />
+            <div key={ticket.number} className="flex items-start gap-1">
+              {manageMode && (
+                <input
+                  type="checkbox"
+                  checked={selectedTickets?.has(ticket.number) ?? false}
+                  onChange={() => onToggleTicket?.(ticket.number)}
+                  className="shrink-0 cursor-pointer mt-2"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <TicketCard
+                  ticket={ticket}
+                  onClick={() => manageMode ? onToggleTicket?.(ticket.number) : onTicketClick(ticket.number)}
+                />
+              </div>
+            </div>
           ))}
         </SortableContext>
       </div>

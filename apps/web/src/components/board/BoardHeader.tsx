@@ -7,6 +7,11 @@ interface BoardHeaderProps {
   stats: BoardStats;
   isOperator: boolean;
   onNewTicket: () => void;
+  manageMode?: boolean;
+  selectedCount?: number;
+  onToggleManage?: () => void;
+  onSelectAll?: () => void;
+  onBatchDelete?: () => void;
 }
 
 export default function BoardHeader({
@@ -14,6 +19,11 @@ export default function BoardHeader({
   stats,
   isOperator,
   onNewTicket,
+  manageMode,
+  selectedCount = 0,
+  onToggleManage,
+  onSelectAll,
+  onBatchDelete,
 }: BoardHeaderProps) {
   const statusVariant =
     kanbanCCStatus === "running"
@@ -40,9 +50,30 @@ export default function BoardHeader({
         {!isOperator && (
           <Badge variant="warn">VIEW ONLY</Badge>
         )}
-        <Button variant="primary" size="sm" onClick={onNewTicket} disabled={!isOperator}>
-          + NEW TICKET
-        </Button>
+        {manageMode ? (
+          <>
+            <Button variant="ghost" size="sm" onClick={onSelectAll}>
+              SELECT ALL
+            </Button>
+            {selectedCount > 0 && (
+              <Button variant="danger" size="sm" onClick={onBatchDelete}>
+                DELETE ({selectedCount})
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onToggleManage}>
+              DONE
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" size="sm" onClick={onToggleManage} disabled={!isOperator}>
+              MANAGE
+            </Button>
+            <Button variant="primary" size="sm" onClick={onNewTicket} disabled={!isOperator}>
+              + NEW TICKET
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

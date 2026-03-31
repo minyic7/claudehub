@@ -25,12 +25,20 @@ interface KanbanBoardProps {
   columns: BoardColumnType[];
   projectId: string;
   onTicketClick: (number: number) => void;
+  manageMode?: boolean;
+  selectedTickets?: Set<number>;
+  onToggleTicket?: (num: number) => void;
+  onToggleColumn?: (status: string) => void;
 }
 
 export default function KanbanBoard({
   columns,
   projectId,
   onTicketClick,
+  manageMode,
+  selectedTickets,
+  onToggleTicket,
+  onToggleColumn,
 }: KanbanBoardProps) {
   const { moveTicket, reorderTicket } = useBoardStore();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
@@ -160,6 +168,10 @@ export default function KanbanBoard({
               key={col.status}
               column={col}
               onTicketClick={onTicketClick}
+              manageMode={manageMode}
+              selectedTickets={selectedTickets}
+              onToggleTicket={onToggleTicket}
+              onToggleColumn={onToggleColumn}
             />
           ))}
         </div>

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router";
 import type { Ticket } from "@claudehub/shared";
+import { toast } from "sonner";
+import { api } from "../api/client.js";
 import { useBoardStore } from "../stores/boardStore.js";
 import { useTerminalStore } from "../stores/terminalStore.js";
 import { useEventWs } from "../hooks/useEventWs.js";
@@ -19,8 +21,59 @@ export default function BoardPage() {
     useBoardStore();
   const [showCreateTicket, setShowCreateTicket] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [manageMode, setManageMode] = useState(false);
+  const [selectedTickets, setSelectedTickets] = useState<Set<number>>(new Set());
 
   const isMobile = useIsMobile();
+
+  const toggleTicketSelect = useCallback((num: number) => {
+    setSelectedTickets((prev) => {
+      const next = new Set(prev);
+      if (next.has(num)) next.delete(num); else next.add(num);
+      return next;
+    });
+  }, []);
+
+  const toggleColumnSelect = useCallback((status: string) => {
+    const col = columns.find((c) => c.status === status);
+    if (!col) return;
+    const colNums = col.tickets.map((t) => t.number);
+    setSelectedTickets((prev) => {
+      const allSelected = colNums.every((n) => prev.has(n));
+      const next = new Set(prev);
+      if (allSelected) colNums.forEach((n) => next.delete(n));
+      else colNums.forEach((n) => next.add(n));
+      return next;
+    });
+  }, [columns]);
+
+  const toggleSelectAll = useCallback(() => {
+    const allNums = columns.flatMap((c) => c.tickets.map((t) => t.number));
+    setSelectedTickets((prev) => {
+      if (prev.size === allNums.length) return new Set();
+      return new Set(allNums);
+    });
+  }, [columns]);
+
+  const handleBatchDelete = useCallback(async () => {
+    if (!projectId || selectedTickets.size === 0) return;
+    const nums = Array.from(selectedTickets);
+    if (!confirm(`Delete ${nums.length} ticket(s)? This cannot be undone.`)) return;
+    let deleted = 0;
+    for (const num of nums) {
+      try {
+        await api.deleteTicket(projectId, num);
+        deleted++;
+      } catch (err) {
+        toast.error(`Failed to delete #${num}: ${err instanceof Error ? err.message : "unknown"}`);
+      }
+    }
+    if (deleted > 0) {
+      toast.success(`Deleted ${deleted} ticket(s)`);
+      setSelectedTickets(new Set());
+      refreshBoard();
+    }
+  }, [projectId, selectedTickets]);
 
   useEventWs(projectId);
   useAutoStartKanbanCC(projectId);
@@ -68,12 +121,25 @@ export default function BoardPage() {
         stats={stats}
         isOperator={isOperator()}
         onNewTicket={() => setShowCreateTicket(true)}
+        manageMode={manageMode}
+        selectedCount={selectedTickets.size}
+        onToggleManage={() => { setManageMode((v) => !v); setSelectedTickets(new Set()); }}
+        onSelectAll={toggleSelectAll}
+        onBatchDelete={handleBatchDelete}
       />
 
       {/* Main area: side-by-side on desktop, stacked on mobile */}
       <div data-board-layout className={`flex flex-1 min-h-0 ${isMobile ? "flex-col" : "flex-row"}`}>
         <div className={`${isMobile ? "flex-1" : "flex-1 min-w-0"} overflow-hidden`}>
-          <KanbanBoard columns={columns} projectId={projectId} onTicketClick={handleTicketClick} />
+          <KanbanBoard
+            columns={columns}
+            projectId={projectId}
+            onTicketClick={handleTicketClick}
+            manageMode={manageMode}
+            selectedTickets={selectedTickets}
+            onToggleTicket={toggleTicketSelect}
+            onToggleColumn={toggleColumnSelect}
+          />
         </div>
         <TerminalPanel projectId={projectId} isMobile={isMobile} />
       </div>
