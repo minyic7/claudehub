@@ -17,4 +17,5 @@ export interface TicketCCInfo {
 export interface CCSession {
   id: string;
   lastActiveAt: string;
+  label?: string;
 }

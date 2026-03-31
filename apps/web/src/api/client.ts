@@ -86,6 +86,11 @@ export const api = {
     request<{ sessions: CCSession[] }>(`/projects/${projectId}/kanban-cc/sessions`),
   deleteKanbanCCSession: (projectId: string, sessionId: string) =>
     request<void>(`/projects/${projectId}/kanban-cc/sessions/${sessionId}`, { method: "DELETE" }),
+  batchDeleteKanbanCCSessions: (projectId: string, sessionIds: string[]) =>
+    request<{ deleted: number }>(`/projects/${projectId}/kanban-cc/sessions/batch-delete`, {
+      method: "POST",
+      body: JSON.stringify({ sessionIds }),
+    }),
 
   // Pilot Mode
   startPilot: (projectId: string, goal: string, idleTimeout?: number) =>

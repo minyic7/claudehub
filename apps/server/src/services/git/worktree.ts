@@ -281,11 +281,19 @@ export async function updateKanbanWorktree(
 
   await gitFetch(owner, repo, token);
   try {
+    // Use merge --ff-only instead of reset --hard to avoid killing running CC processes.
+    // reset --hard yanks files out from under Claude CLI, causing SIGKILL crashes.
     await exec("git", ["checkout", baseBranch], { cwd: wtPath });
-    await exec("git", ["reset", "--hard", baseBranch], { cwd: wtPath });
+    await exec("git", ["merge", "--ff-only", `refs/remotes/origin/${baseBranch}`], { cwd: wtPath });
   } catch {
-    // Detached head, just reset
-    await exec("git", ["reset", "--hard", baseBranch], { cwd: wtPath });
+    // If ff-only fails (diverged history), fall back to reset --hard.
+    // This may crash a running CC, but the auto-restart mechanism will recover it.
+    try {
+      await exec("git", ["reset", "--hard", `refs/remotes/origin/${baseBranch}`], { cwd: wtPath });
+    } catch {
+      // Last resort: detached head or other issue
+      await exec("git", ["checkout", "-f", baseBranch], { cwd: wtPath });
+    }
   }
 }
 

@@ -59,6 +59,25 @@ function getSessionDir(cwd: string): string {
 export interface CCSession {
   id: string;
   lastActiveAt: string;
+  label?: string;
+}
+
+/** Extract a label from the first few lines of a session file */
+function extractSessionLabel(filePath: string): string | undefined {
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const buf = Buffer.alloc(2048);
+    const bytesRead = fs.readSync(fd, buf, 0, 2048, 0);
+    fs.closeSync(fd);
+    const text = buf.toString("utf-8", 0, bytesRead);
+    // Look for system prompt content that identifies the session type
+    if (text.includes("Kanban CC") || text.includes("kanban")) return "Kanban CC";
+    const ticketMatch = text.match(/ticket\s*#?(\d+)/i);
+    if (ticketMatch) return `Ticket #${ticketMatch[1]}`;
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** List all sessions for a workspace, sorted by last active (newest first) */
@@ -71,13 +90,24 @@ export function listSessions(cwd: string): CCSession[] {
       .filter((f) => f.endsWith(".jsonl"))
       .map((f) => {
         const id = f.replace(".jsonl", "");
-        const stat = fs.statSync(path.join(sessionDir, f));
-        return { id, lastActiveAt: stat.mtime.toISOString() };
+        const filePath = path.join(sessionDir, f);
+        const stat = fs.statSync(filePath);
+        const label = extractSessionLabel(filePath);
+        return { id, lastActiveAt: stat.mtime.toISOString(), label };
       })
       .sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
   } catch {
     return [];
   }
+}
+
+/** Delete multiple sessions at once */
+export function deleteSessions(cwd: string, sessionIds: string[]): number {
+  let deleted = 0;
+  for (const id of sessionIds) {
+    if (deleteSession(cwd, id)) deleted++;
+  }
+  return deleted;
 }
 
 /** Delete a specific session */

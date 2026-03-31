@@ -97,6 +97,20 @@ kanbanCC.delete("/sessions/:sessionId", async (c) => {
     : c.json({ error: "Session not found" }, 404);
 });
 
+// POST /api/projects/:projectId/kanban-cc/sessions/batch-delete
+kanbanCC.post("/sessions/batch-delete", async (c) => {
+  const projectId = c.req.param("projectId")!;
+  const body = await c.req.json<{ sessionIds: string[] }>();
+  if (!body.sessionIds?.length) return c.json({ error: "sessionIds required" }, 400);
+  const project = await db.getProject(projectId);
+  if (!project) return c.json({ error: "Project not found" }, 404);
+
+  const deleted = ccManager.deleteSessions(
+    kanbanWorktreePath(project.owner, project.repo), body.sessionIds,
+  );
+  return c.json({ deleted });
+});
+
 // GET /api/projects/:projectId/kanban-cc
 kanbanCC.get("/", async (c) => {
   const projectId = c.req.param("projectId")!;

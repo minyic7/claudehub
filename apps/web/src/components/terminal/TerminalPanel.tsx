@@ -50,6 +50,100 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString();
 }
 
+function SessionList({ sessions, ccLoading, onResume, onDelete, onBatchDelete }: {
+  sessions: CCSession[];
+  ccLoading: boolean;
+  onResume: (id: string) => void;
+  onDelete: (id: string) => void;
+  onBatchDelete: (ids: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === sessions.length) setSelected(new Set());
+    else setSelected(new Set(sessions.map((s) => s.id)));
+  };
+
+  return (
+    <div className="w-full flex flex-col gap-1">
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-pixel text-[7px] text-text-muted">RESUME SESSION</span>
+        <div className="flex gap-2">
+          {selectMode && selected.size > 0 && (
+            <button
+              onClick={() => { onBatchDelete(Array.from(selected)); setSelected(new Set()); setSelectMode(false); }}
+              className="font-pixel text-[6px] text-status-error hover:text-status-error/80 cursor-pointer"
+            >
+              DELETE ({selected.size})
+            </button>
+          )}
+          <button
+            onClick={() => { setSelectMode((v) => !v); if (selectMode) setSelected(new Set()); }}
+            className="font-pixel text-[6px] text-text-muted hover:text-text-secondary cursor-pointer"
+          >
+            {selectMode ? "CANCEL" : "SELECT"}
+          </button>
+        </div>
+      </div>
+      {selectMode && (
+        <button
+          onClick={selectAll}
+          className="font-pixel text-[6px] text-text-muted hover:text-accent cursor-pointer text-left mb-0.5"
+        >
+          {selected.size === sessions.length ? "DESELECT ALL" : "SELECT ALL"}
+        </button>
+      )}
+      {sessions.map((s) => (
+        <div
+          key={s.id}
+          className={`group flex items-center gap-1 w-full border rounded px-2 py-1.5 transition-colors ${
+            selected.has(s.id) ? "border-accent/60 bg-accent/5" : "border-border-default hover:border-accent/40"
+          }`}
+        >
+          {selectMode && (
+            <input
+              type="checkbox"
+              checked={selected.has(s.id)}
+              onChange={() => toggleSelect(s.id)}
+              className="shrink-0 cursor-pointer"
+            />
+          )}
+          <button
+            onClick={() => selectMode ? toggleSelect(s.id) : onResume(s.id)}
+            disabled={ccLoading}
+            className="flex-1 text-left font-pixel text-[7px] text-text-secondary hover:text-accent cursor-pointer disabled:opacity-50 truncate"
+            title={s.id}
+          >
+            <span className="text-accent/70">{s.label || "Session"}</span>
+            {" "}
+            <span className="text-text-muted">{s.id.slice(0, 8)}</span>
+            {" - "}
+            {formatTime(s.lastActiveAt)}
+          </button>
+          {!selectMode && (
+            <button
+              onClick={() => onDelete(s.id)}
+              className="font-pixel text-[7px] text-text-muted hover:text-status-error cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              title="Delete session"
+            >
+              X
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface TerminalPanelProps {
   projectId: string;
   isMobile?: boolean;
@@ -469,31 +563,20 @@ export default function TerminalPanel({ projectId, isMobile }: TerminalPanelProp
               {sessionsLoading ? (
                 <span className="font-pixel text-[7px] text-text-muted">Loading sessions...</span>
               ) : sessions.length > 0 ? (
-                <div className="w-full flex flex-col gap-1">
-                  <span className="font-pixel text-[7px] text-text-muted mb-1">RESUME SESSION</span>
-                  {sessions.map((s) => (
-                    <div
-                      key={s.id}
-                      className="group flex items-center gap-1 w-full border border-border-default rounded px-2 py-1.5 hover:border-accent/40 transition-colors"
-                    >
-                      <button
-                        onClick={() => handleStartKanbanCC(s.id)}
-                        disabled={ccLoading}
-                        className="flex-1 text-left font-pixel text-[7px] text-text-secondary hover:text-accent cursor-pointer disabled:opacity-50 truncate"
-                        title={s.id}
-                      >
-                        {s.id.slice(0, 8)}... - {formatTime(s.lastActiveAt)}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSession(s.id)}
-                        className="font-pixel text-[7px] text-text-muted hover:text-status-error cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                        title="Delete session"
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <SessionList
+                  sessions={sessions}
+                  ccLoading={ccLoading}
+                  onResume={(id) => handleStartKanbanCC(id)}
+                  onDelete={(id) => handleDeleteSession(id)}
+                  onBatchDelete={async (ids) => {
+                    try {
+                      await api.batchDeleteKanbanCCSessions(projectId, ids);
+                      setSessions((prev) => prev.filter((s) => !ids.includes(s.id)));
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed to delete sessions");
+                    }
+                  }}
+                />
               ) : null}
             </div>
           )}
