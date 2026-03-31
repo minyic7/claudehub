@@ -68,7 +68,8 @@ export default function BoardPage() {
     if (failed > 0) toast.error(`Failed to delete ${failed} ticket(s)`);
     setSelectedTickets(new Set());
     setManageMode(false);
-    refreshBoard();
+    // Don't refreshBoard() — WS ticket:deleted events update the store in real-time.
+    // Refetching would race with in-flight deletes and re-add not-yet-deleted tickets.
   }, [projectId, selectedTickets]);
 
   useEventWs(projectId);
