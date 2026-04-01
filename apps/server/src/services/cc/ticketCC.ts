@@ -68,7 +68,7 @@ Your worktree may already have dependencies installed. If not, or if you encount
 - **Stay in your worktree.** Do not modify files outside your working directory.
 - **Do not switch branches.** Your branch is already checked out.
 - **Do not push to the base branch.** Only push to your feature branch.
-- **Wait for CI.** Never set status=reviewing before CI passes (the API will reject it). If CI doesn't arrive within 2 minutes after push, set reviewing anyway.
+- **Wait for CI.** Never set status=reviewing before CI passes (the API will reject it). If CI doesn't arrive within 30 seconds after push, set reviewing anyway.
 - **Commit often.** Small, logical commits are better than one large commit.
 - **No secrets.** Never commit .env files, API keys, or credentials.
 
